@@ -10,6 +10,7 @@
 #include "gsl/gsl_sf_gamma.h"
 
 #include "3body_int.h"
+#include "hydro_cells.h"
 
 #include "smash/particles.h"
 #include "smash/random.h"
@@ -521,7 +522,6 @@ void random_three_to_two(ParticleList &particles,
 */
 }
 
-
 int main() {
   initialize_random_number_generator();
   load_smash_particles();
@@ -554,7 +554,11 @@ int main() {
       }
     }
   }
-  
+
+  HyperSurfacePatch hyper("../hydro_cells.dat");
+  std::cout << "A patch is created, number of cells = "
+            << hyper.Ncells() << std::endl;
+/*  
   std::cout << "Constructing initial configuration." << std::endl;
   const double E_tot = 500.0;  // GeV
   const double V = 1000.0;    // fm^3
@@ -603,12 +607,13 @@ int main() {
         random_three_to_two(particles, sampled_types, three_body_int, V);
       }
     }
+*/
 /*
     for (const auto &part : particles) {
       std::cout << part.momentum().abs() << " " << part.momentum().x0() << std::endl;
     }
 */
-
+/*
     for (const ParticleTypePtr t : sampled_types) {
       std::cout << type_count(particles, t) << " ";
     }
@@ -617,4 +622,5 @@ int main() {
 
   QuantumNumbers cons(particles);
   std::cout << "Final momentum: " << cons.momentum() << std::endl;
+*/
 }
