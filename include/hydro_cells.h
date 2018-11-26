@@ -31,6 +31,7 @@ public:
  int B() const { return B_tot_; }
  int S() const { return S_tot_; }
  int Q() const { return Q_tot_; }
+ smash::FourVector pmu() const { return pmu_tot_; }
  const std::vector<hydro_cell>& cells() const { return cells_; }
  int Ncells() const { return cells_.size(); }
 
