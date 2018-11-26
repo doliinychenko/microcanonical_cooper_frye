@@ -5,7 +5,7 @@
 #include <fstream>
 #include <streambuf>
 
-#include "3body_int.h"
+#include "threebody_integrals.h"
 
 #include "smash/integrate.h"
 #include "smash/kinematics.h"

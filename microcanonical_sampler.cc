@@ -9,8 +9,9 @@
 
 #include "gsl/gsl_sf_gamma.h"
 
-#include "3body_int.h"
+#include "threebody_integrals.h"
 #include "hydro_cells.h"
+#include "main.h"
 
 #include "smash/particles.h"
 #include "smash/random.h"
