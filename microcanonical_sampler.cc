@@ -554,10 +554,13 @@ int main() {
       }
     }
   }
+*/
 
-  HyperSurfacePatch hyper("../hydro_cells.dat");
-  std::cout << "A patch is created, number of cells = "
-            << hyper.Ncells() << std::endl;
+  HyperSurfacePatch hyper("../hydro_cells.dat",
+      [&](const ParticleTypePtr t) {
+        return t->is_hadron() && t->mass() < 1.0;
+      });
+  std::cout << hyper << std::endl;
 /*  
   std::cout << "Constructing initial configuration." << std::endl;
   const double E_tot = 500.0;  // GeV
