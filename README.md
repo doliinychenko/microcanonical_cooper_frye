@@ -11,7 +11,7 @@ In general, Metropolis algorithm always follows these steps:
 
 In this project the proposal function is very similar to 2<->3 collisions,
 which ensures all the conservation laws. One can imagine the outcome as a Markov chain,
-that travels in a special subspace of (cell(i), p_i}, where i varies from 1 to N, and N
+that travels in a special subspace of {cell(i), p_i}, where i varies from 1 to N, and N
 is variable), where the total energy, momentum and quantum numbers are the same.
 
 ## Inputs
@@ -21,8 +21,8 @@ T    - temperature
 muB  - baryon chemical potential
 muS  - strangeness chemical potential
 muQ  - electric charge chemical potential
-u_mu - 4-velocity, note the lower index
-dsigma_mu - normal 4-vector to the hypersurface element, note the lower index
+v    - 3-velocity of the hypersurface element
+dsigma^mu - normal 4-vector to the hypersurface element, note that the index is upper
        For definition see Eq. (2) in https://arxiv.org/pdf/1206.3371.pdf
 
 ## Outputs
