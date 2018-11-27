@@ -1,0 +1,9 @@
+*~
+build
+cmake
+.directory
+.push_default
+*.diff
+*.orig
+*.rej
+.DS_Store

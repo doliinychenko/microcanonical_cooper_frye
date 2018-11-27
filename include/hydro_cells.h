@@ -45,6 +45,7 @@ public:
   int Q() const { return Q_tot_; }
   smash::FourVector pmu() const { return pmu_tot_; }
   const std::vector<hydro_cell> &cells() const { return cells_; }
+  const hydro_cell &cell(size_t index) const { return cells_[index]; }
   size_t Ncells() const { return cells_.size(); }
 
 private:

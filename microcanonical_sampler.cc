@@ -1,19 +1,10 @@
-#include <iostream>
-#include <iomanip>
-#include <string>
-#include <fstream>
-#include <streambuf>
-
 #include <vector>
-#include <set>
 
-#include "gsl/gsl_sf_gamma.h"
-
+#include "microcanonical_sampler.h"
 #include "threebody_integrals.h"
 #include "hydro_cells.h"
-#include "main.h"
 
-#include "smash/particles.h"
+#include "smash/particletype.h"
 #include "smash/random.h"
 #include "smash/decaymodes.h"
 #include "smash/angles.h"
@@ -21,50 +12,479 @@
 #include "smash/quantumnumbers.h"
 #include "smash/pow.h"
 #include "smash/isoparticletype.h"
+#include "smash/kinematics.h"
 
-using namespace smash;
+MicrocanonicalSampler::MicrocanonicalSampler(
+    const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
+    int debug_printout)
+  : debug_printout_(debug_printout) {
+  // Initialize sampled types
+  if (debug_printout_) {
+    std::cout << "Initializing sampled types..." << std::endl;
+  }
+  for (const smash::ParticleType& ptype : smash::ParticleType::list_all()) {
+    if (is_sampled(&ptype)) {
+      sampled_types_.push_back(&ptype);
+    }
+  }
 
-void initialize_random_number_generator() {
-  // Seed with a truly random 63-bit value, if possible
-  std::random_device rd;
-  static_assert(std::is_same<decltype(rd()), uint32_t>::value,
-               "random_device is assumed to generate uint32_t");
-  uint64_t unsigned_seed = (static_cast<uint64_t>(rd()) << 32) |
-                            static_cast<uint64_t>(rd());
-  // Discard the highest bit to make sure it fits into a positive int64_t
-  int64_t seed = static_cast<int64_t>(unsigned_seed >> 1);
-  random::set_seed(seed);
+  // Prepare 3-body integrals
+  if (debug_printout_) {
+    std::cout << "Preparing 3-body integrals..." << std::endl;
+  }
+  std::vector<double> unique_masses;
+  for (const smash::ParticleTypePtr t : sampled_types_) {
+    unique_masses.push_back(t->mass());
+  }
+  std::sort(unique_masses.begin(), unique_masses.end());
+  unique_masses.erase(std::unique(unique_masses.begin(), unique_masses.end()),
+                      unique_masses.end() );
+  const size_t N_masses = unique_masses.size();
+  if (debug_printout_) {
+    std::cout << N_masses << " different masses in total" << std::endl;
+  }
+  for (size_t i = 0; i < N_masses; i++) {
+    for (size_t j = 0; j <= i; j++) {
+      for (size_t k = 0; k <= j; k++) {
+        three_body_int_.add(unique_masses[i],
+                            unique_masses[j],
+                            unique_masses[k]);
+      }
+    }
+  }
 }
 
-void load_smash_particles() {
-  std::string smash_dir(std::getenv("SMASH_DIR"));
-  if (smash_dir == "") {
-    throw std::runtime_error("Failed to load SMASH particle types."
-                             " SMASH_DIR is not set.");
-  }
-  std::cout << "Loading SMASH particle types and decay modes" << std::endl;
-  std::ifstream particles_input_file(smash_dir + "/input/particles.txt");
-  std::stringstream buffer;
-  if (particles_input_file) {
-    buffer << particles_input_file.rdbuf();
-    ParticleType::create_type_list(buffer.str());
+void MicrocanonicalSampler::initialize(const HyperSurfacePatch& hypersurface) {
+  particles_clear();
+  const int B = hypersurface.B(),
+            S = hypersurface.S(),
+            Q = hypersurface.Q();
+  const smash::FourVector ptot = hypersurface.pmu();
+}
+
+void MicrocanonicalSampler::one_markov_chain_step(
+                            const HyperSurfacePatch& hypersurface) {
+  if (smash::random::uniform_int(0, 1)) {
+    random_two_to_three(hypersurface);
   } else {
-    std::cout << "File with SMASH particle list not found." << std::endl;
-  }
-  std::ifstream decaymodes_input_file(smash_dir + "/input/decaymodes.txt");
-  if (decaymodes_input_file) {
-    buffer.clear();
-    buffer.str(std::string());
-    buffer << decaymodes_input_file.rdbuf();
-    DecayModes::load_decaymodes(buffer.str());
-    ParticleType::check_consistency();
-  } else {
-    std::cout << "File with SMASH decaymodes not found." << std::endl;
+    random_three_to_two(hypersurface);
   }
 }
 
-void renormalize_momenta(ParticleList &particles,
-                         const FourVector required_total_momentum) {
+double MicrocanonicalSampler::compute_R2(double srts, double m1, double m2) {
+  return (srts > m1 + m2) ? smash::pCM(srts, m1, m2) / (4.0 * M_PI * srts)
+                          : 0.0;
+}
+
+double MicrocanonicalSampler::compute_sum_R3(const QuantumNumbers &cons) {
+  const int Ntypes = sampled_types_.size();
+  smash::FourVector momentum_total = cons.momentum;
+  const double srts = momentum_total.abs();
+  double sum_R3 = 0.0;
+  for (int i1 = 0; i1 < Ntypes; ++i1) {
+    for (int i2 = 0; i2 <= i1; ++i2) {
+      for (int i3 = 0; i3 <= i2; ++i3) {
+        if (quantum_numbers_match({sampled_types_[i1],
+                                   sampled_types_[i2],
+                                   sampled_types_[i3]}, cons)) {
+          const double tmp = three_body_int_.value(srts,
+                                sampled_types_[i1]->mass(),
+                                sampled_types_[i2]->mass(),
+                                sampled_types_[i3]->mass());
+          assert(tmp >= 0);
+          sum_R3 += tmp;
+          if (debug_printout_ >= 2) {
+            std::cout << sampled_types_[i1]->name()
+                      << sampled_types_[i2]->name()
+                      << sampled_types_[i3]->name() << " " << tmp * 1E6
+                      << " at srts = " << srts << std::endl;
+          }
+        }
+      }
+    }
+  }
+  return sum_R3;
+}
+
+double MicrocanonicalSampler::compute_sum_R2(const QuantumNumbers &cons) {
+  const int Ntypes = sampled_types_.size();
+  smash::FourVector momentum_total = cons.momentum;
+  const double srts = momentum_total.abs();
+  double sum_R2 = 0.0;
+  for (int i1 = 0; i1 < Ntypes; ++i1) {
+    for (int i2 = 0; i2 <= i1; ++i2) {
+      if (quantum_numbers_match({sampled_types_[i1],
+                                 sampled_types_[i2]}, cons)) {
+        const double m_i1 = sampled_types_[i1]->mass(),
+                     m_i2 = sampled_types_[i2]->mass();
+        const double R2 = compute_R2(srts, m_i1, m_i2);
+        sum_R2 += R2;
+      }
+    }
+  }
+  return sum_R2;
+}
+
+void MicrocanonicalSampler::sample_3body_phase_space(double srts,
+                              SamplerParticle &a,
+                              SamplerParticle &b,
+                              SamplerParticle &c) {
+  const double m_a = a.type->mass(),
+               m_b = b.type->mass(),
+               m_c = c.type->mass();
+  // sample mab from pCM(sqrt, mab, mc) pCM (mab, ma, mb) <= sqrts^2/4
+  double mab, r, probability, pcm_ab, pcm;
+  do {
+    mab = smash::random::uniform(m_a + m_b, srts - m_c);
+    r = smash::random::canonical();
+    pcm = smash::pCM(srts, mab, m_c);
+    pcm_ab = smash::pCM(mab, m_a, m_b);
+    probability = pcm * pcm_ab * 4 / (srts * srts);
+  } while (r > probability);
+  smash::Angles phitheta;
+  phitheta.distribute_isotropically();
+  c.momentum = smash::FourVector(std::sqrt(m_c * m_c + pcm * pcm),
+                                 pcm * phitheta.threevec());
+  const smash::ThreeVector beta_cm =
+      pcm * phitheta.threevec() / std::sqrt(pcm * pcm + mab * mab);
+
+  phitheta.distribute_isotropically();
+  a.momentum = smash::FourVector(std::sqrt(m_a * m_a + pcm_ab * pcm_ab),
+                                 pcm_ab * phitheta.threevec());
+  b.momentum = smash::FourVector(std::sqrt(m_b * m_b + pcm_ab * pcm_ab),
+                                -pcm_ab * phitheta.threevec());
+  a.momentum = a.momentum.LorentzBoost(beta_cm);
+  b.momentum = b.momentum.LorentzBoost(beta_cm);
+  // todo: remove this line after quick check
+  assert(std::abs((a.momentum + b.momentum + c.momentum).abs()) < 1.e-12);
+  if (debug_printout_ == 3) {
+    std::cout << "Sample 3-body phase space: total momentum = "
+              << a.momentum + b.momentum + c.momentum << std::endl;
+  }
+}
+
+bool MicrocanonicalSampler::quantum_numbers_match(
+                            const smash::ParticleTypePtrList& a,
+                            const QuantumNumbers& qn) {
+  int B = 0, S = 0, Q = 0;
+  for (const auto ptype : a) {
+    B += ptype->baryon_number();
+    S += ptype->strangeness();
+    Q += ptype->charge();
+  }
+  return (B == qn.B) && (S == qn.S) && (Q == qn.Q);
+}
+
+double MicrocanonicalSampler::compute_cells_factor(
+    const SamplerParticleList& in, const SamplerParticleList& out,
+    const HyperSurfacePatch& hypersurface) {
+  double cells_factor = 0.0;
+  for (const SamplerParticle& p : out) {
+    const HyperSurfacePatch::hydro_cell c = hypersurface.cell(p.cell_index);
+    const double mu = c.muB * p.type->baryon_number() +
+                      c.muS * p.type->strangeness() +
+                      c.muQ * p.type->charge();
+    cells_factor += (mu - p.momentum.Dot(c.u)) / c.T;
+  }
+  for (const SamplerParticle& p : in) {
+    const HyperSurfacePatch::hydro_cell c = hypersurface.cell(p.cell_index);
+    const double mu = c.muB * p.type->baryon_number() +
+                      c.muS * p.type->strangeness() +
+                      c.muQ * p.type->charge();
+    cells_factor -= (mu - p.momentum.Dot(c.u)) / c.T;
+  }
+  cells_factor = std::exp(cells_factor);
+  return cells_factor;
+}
+
+double MicrocanonicalSampler::compute_spin_factor(
+    const SamplerParticleList& in, const SamplerParticleList& out) {
+  double spin_factor = 1.0;
+  for (const SamplerParticle& part : out) {
+    spin_factor *= part.type->pdgcode().spin_degeneracy();
+  }
+  for (const SamplerParticle& part : in) {
+    spin_factor /= part.type->pdgcode().spin_degeneracy();
+  }
+  return spin_factor;
+}
+
+
+void MicrocanonicalSampler::random_two_to_three(
+                            const HyperSurfacePatch& hypersurface) {
+  const size_t Ntypes = sampled_types_.size();
+  const size_t Npart = particles_.size();
+  const size_t Ncells = hypersurface.Ncells();
+  // Choose 2 random particles
+  size_t in_index1, in_index2, i1, i2, i3;
+  in_index1 = smash::random::uniform_int<size_t>(0, Npart - 1);
+  do {
+    in_index2 = smash::random::uniform_int<size_t>(0, Npart - 1);
+  } while (in_index1 == in_index2);
+  SamplerParticleList in{particles_[in_index1], particles_[in_index2]};
+  QuantumNumbers cons(in);
+  const smash::FourVector momentum_total = cons.momentum;
+  const double srts = momentum_total.abs();
+  const smash::ThreeVector beta_cm = momentum_total.velocity();
+
+  const double sum_R3 = compute_sum_R3(cons);
+  const double sum_R2 = compute_sum_R2(cons);
+
+  if (sum_R3 < 1.e-100) {
+    if (debug_printout_) {
+      std::cout << "Not enough energy ("
+                << srts << " GeV) for 2->3" << std::endl;
+    }
+    return;
+  }
+
+  // Choose channel
+  const double r = smash::random::uniform(0.0, sum_R3);
+  double partial_sum_R3 = 0.0;
+  bool channel_found23 = false;
+  for (i1 = 0; i1 < Ntypes && !channel_found23; i1++) {
+    for (i2 = 0; i2 <= i1 && !channel_found23; i2++) {
+      for (i3 = 0; i3 <= i2 && !channel_found23; i3++) {
+        if (quantum_numbers_match({sampled_types_[i1],
+                                  sampled_types_[i2],
+                                  sampled_types_[i3]}, cons)) {
+          const double tmp = three_body_int_.value(srts,
+                                sampled_types_[i1]->mass(),
+                                sampled_types_[i2]->mass(),
+                                sampled_types_[i3]->mass());
+          assert(tmp >= 0.0);
+          partial_sum_R3 += tmp;
+          if (partial_sum_R3 >= r) {
+            channel_found23 = true;
+          }
+          if (partial_sum_R3 > sum_R3) {
+            throw std::runtime_error("2->3 partial sum exceeded total!");
+          }
+        }
+      }
+    }
+  }
+  i1--;
+  i2--;
+  i3--;
+  if (!channel_found23) {
+    return;
+  }
+  SamplerParticleList out;
+  out.clear();
+  std::array<size_t,3> cell =
+    {smash::random::uniform_int<size_t>(0, Ncells - 1),
+     smash::random::uniform_int<size_t>(0, Ncells - 1),
+     smash::random::uniform_int<size_t>(0, Ncells - 1)};
+  out[0] = {smash::FourVector(), sampled_types_[i1], cell[0]};
+  out[1] = {smash::FourVector(), sampled_types_[i2], cell[1]};
+  out[2] = {smash::FourVector(), sampled_types_[i3], cell[2]};
+
+  sample_3body_phase_space(srts, out[0], out[1], out[2]);
+  for (SamplerParticle& part : out) {
+    part.momentum = part.momentum.LorentzBoost(-beta_cm);
+  }
+  if (debug_printout_ == 3) {
+    std::cout << "In: " << in[0].momentum << " "
+                        << in[1].momentum << std::endl;
+    std::cout << "Out: " << out[0].momentum << " "
+                         << out[1].momentum << " "
+                         << out[2].momentum << std::endl;
+  }
+
+  // At this point the proposal function is set
+  // Further is the calculation of probability to accept it
+  const double phase_space_factor = sum_R3 / sum_R2;
+  const double spin_factor = compute_spin_factor(in, out);
+
+  double combinatorial_factor = 3.0 / (Npart + 1);
+  if (out[0].type == out[1].type && out[1].type == out[2].type) {
+    combinatorial_factor /= 6;
+  } else if (out[0].type == out[1].type || out[1].type == out[2].type) {
+    combinatorial_factor /= 2;
+  }
+  if (in[0].type == in[1].type) {
+    combinatorial_factor *= 2;
+  }
+
+  double energy_factor = 2.0 * Ncells / smash::pow_int(smash::hbarc, 3);
+  for (const SamplerParticle& p : out) {
+    energy_factor *= p.momentum.Dot(hypersurface.cell(p.cell_index).dsigma);
+  }
+  for (const SamplerParticle& p : in) {
+    energy_factor /= p.momentum.Dot(hypersurface.cell(p.cell_index).dsigma);
+  }
+
+  double cells_factor = compute_cells_factor(in, out, hypersurface);
+
+
+  const double w = phase_space_factor * spin_factor * combinatorial_factor *
+                   energy_factor * cells_factor;
+
+  if (debug_printout_ == 1) {
+    std::cout << "Trying 2->3 (" << in << "->" << out
+              << ") with w = " << w
+              << "; ph. sp. factor * 1e6 = " << phase_space_factor * 1.e6
+              << "; spin_factor = " << spin_factor
+              << "; comb. factor = " << combinatorial_factor
+              << "; energy factor = " << energy_factor
+              << "; cell factor = " << cells_factor
+              << "; srts = " << srts << std::endl;
+  }
+
+  // No need to do it: w = std::min(1.0, w);
+  if (smash::random::canonical() < w) {
+    particles_[in_index1] = out[0];
+    particles_[in_index2] = out[1];
+    particles_.push_back(out[2]);
+
+    if (debug_printout_ == 1) {
+      std::cout << in << "->" << out << ";" << srts << std::endl;
+    }
+  }
+}
+
+
+void MicrocanonicalSampler::random_three_to_two(
+                            const HyperSurfacePatch& hypersurface) {
+  const size_t Ntypes = sampled_types_.size();
+  const size_t Npart = particles_.size();
+  const size_t Ncells = hypersurface.Ncells();
+  if (Npart < 3) {
+    return;
+  }
+  // Choose 3 random particles
+  size_t in_index1, in_index2, in_index3, i1, i2;
+  in_index1 = smash::random::uniform_int<size_t>(0, Npart - 1);
+  do {
+    in_index2 = smash::random::uniform_int<size_t>(0, Npart - 1);
+  } while (in_index1 == in_index2);
+  do {
+    in_index3 = smash::random::uniform_int<size_t>(0, Npart - 1);
+  } while (in_index3 == in_index1 || in_index3 == in_index2);
+  SamplerParticleList in{particles_[in_index1],
+                         particles_[in_index2],
+                         particles_[in_index3]};
+  QuantumNumbers cons(in);
+  smash::FourVector momentum_total = cons.momentum;
+  const double srts = momentum_total.abs();
+  const smash::ThreeVector beta_cm = momentum_total.velocity();
+
+  const double sum_R3 = compute_sum_R3(cons);
+  const double sum_R2 = compute_sum_R2(cons);
+  if (sum_R2 < 1.e-100) {
+    if (debug_printout_) {
+      std::cout << "Not enough energy (" << srts << " GeV) or wrong quantum"
+                   " numbers for 3->2" << std::endl;
+    }
+    return;
+  }
+
+
+  // Choose channel
+  const double r = smash::random::uniform(0.0, sum_R2);
+  double partial_sum_R2 = 0.0;
+  bool channel_found32 = false;
+  for (i1 = 0; (i1 < Ntypes) && (!channel_found32); i1++) {
+    for (i2 = 0; (i2 <= i1) && (!channel_found32); i2++) {
+     if (quantum_numbers_match({sampled_types_[i1],
+                                 sampled_types_[i2]}, cons)) {
+        const double tmp = compute_R2(srts,
+                            sampled_types_[i1]->mass(),
+                            sampled_types_[i2]->mass());
+        partial_sum_R2 += tmp;
+        if (partial_sum_R2 >= r) {
+          channel_found32 = true;
+        }
+        if (partial_sum_R2 > sum_R2) {
+          std::cout << partial_sum_R2 << " " << sum_R2 << std::endl;
+          throw std::runtime_error("3->2, partial sum exceeded total!");
+        }
+      }
+    }
+  }
+  i1--;
+  i2--;
+  if (!channel_found32) {
+    if (debug_printout_ == 2) {
+      std::cout << "No channel found, R2_sum = " << sum_R2 << std::endl;
+    }
+    return;
+  }
+  SamplerParticleList out;
+  out.clear();
+  std::array<size_t,2> cell =
+    {smash::random::uniform_int<size_t>(0, Ncells - 1),
+     smash::random::uniform_int<size_t>(0, Ncells - 1)};
+  out[0] = {smash::FourVector(), sampled_types_[i1], cell[0]};
+  out[1] = {smash::FourVector(), sampled_types_[i2], cell[1]};
+
+  const double m1 = out[0].type->mass(),
+               m2 = out[1].type->mass();
+  const double p_cm = smash::pCM(srts, m1, m2);
+  smash::Angles phitheta;
+  phitheta.distribute_isotropically();
+  const smash::ThreeVector mom = p_cm * phitheta.threevec();
+  const double mom2 = p_cm*p_cm;
+  smash::FourVector p1(std::sqrt(mom2 + m1*m1),  mom),
+                    p2(std::sqrt(mom2 + m2*m2), -mom);
+  out[0].momentum = p1.LorentzBoost(-beta_cm);
+  out[1].momentum = p2.LorentzBoost(-beta_cm);
+
+  // At this point the proposal function is set
+  // Further is the calculation of probability to accept it
+  const double phase_space_factor = sum_R2 / sum_R3;
+  const double spin_factor = compute_spin_factor(in, out);
+
+  double combinatorial_factor = static_cast<double>(Npart) / 3.0;
+  if (out[0].type == out[1].type) {
+    combinatorial_factor /= 2;
+  }
+  if (in[0].type == in[1].type && in[1].type == in[2].type) {
+    combinatorial_factor *= 6;
+  } else if (in[0].type == in[1].type || in[1].type == in[2].type) {
+    combinatorial_factor *= 2;
+  }
+
+  double energy_factor = smash::pow_int(smash::hbarc, 3) / (2.0 * Ncells);
+  for (const SamplerParticle& p : out) {
+    energy_factor *= p.momentum.Dot(hypersurface.cell(p.cell_index).dsigma);
+  }
+  for (const SamplerParticle& p : in) {
+    energy_factor /= p.momentum.Dot(hypersurface.cell(p.cell_index).dsigma);
+  }
+
+  double cells_factor = compute_cells_factor(in, out, hypersurface);
+
+
+  const double w = phase_space_factor * spin_factor * combinatorial_factor *
+                   energy_factor * cells_factor;
+
+  if (debug_printout_ == 1) {
+    std::cout << "Trying 3->2 (" << in << "->" << out
+              << ") with w = " << w
+              << "; ph. sp. factor * 1e6 = " << phase_space_factor * 1.e6
+              << "; spin_factor = " << spin_factor
+              << "; comb. factor = " << combinatorial_factor
+              << "; energy factor = " << energy_factor
+              << "; cell factor = " << cells_factor
+              << "; srts = " << srts << std::endl;
+  }
+
+  // No need to do it: w = std::min(1.0, w);
+  if (smash::random::canonical() < w) {
+    particles_[in_index1] = out[0];
+    particles_[in_index2] = out[1];
+    particles_.erase(particles_.begin() + in_index3);
+    if (debug_printout_) {
+      std::cout << in << "->" << out << ";" << srts << std::endl;
+    }
+  }
+}
+
+/*
+void MicrocanonicalSampler::renormalize_momenta(
+                            const smash::FourVector required_total_momentum) {
 
   // Centralize momenta
   QuantumNumbers conserved = QuantumNumbers(particles);
@@ -133,498 +553,14 @@ void renormalize_momenta(ParticleList &particles,
             << conserved_final.momentum() << std::endl;
 }
 
-void sample_3body_phase_space(double srts,
-                              ParticleData &a,
-                              ParticleData &b,
-                              ParticleData &c) {
-  const double m_a = a.type().mass(),
-               m_b = b.type().mass(),
-               m_c = c.type().mass();
-  // sample mab from pCM(sqrt, mab, mc) pCM (mab, ma, mb) <= sqrts^2/4
-  double mab, r, probability, pcm_ab, pcm;
-  do {
-    mab = random::uniform(m_a + m_b, srts - m_c);
-    r = random::canonical();
-    pcm = pCM(srts, mab, m_c);
-    pcm_ab = pCM(mab, m_a, m_b);
-    probability = pcm * pcm_ab * 4 / (srts * srts);
-  } while (r > probability);
-  Angles phitheta;
-  phitheta.distribute_isotropically();
-  c.set_4momentum(m_c, pcm * phitheta.threevec());
-  const ThreeVector beta_cm =
-      pcm * phitheta.threevec() / std::sqrt(pcm * pcm + mab * mab);
-
-  phitheta.distribute_isotropically();
-  a.set_4momentum(m_a,  pcm_ab * phitheta.threevec());
-  b.set_4momentum(m_b, -pcm_ab * phitheta.threevec());
-  a.boost_momentum(beta_cm);
-  b.boost_momentum(beta_cm);
-  // std::cout << a.momentum() + b.momentum() + c.momentum() << std::endl;
-}
-
-bool quantum_numbers_match(const ParticleTypePtrList& a,
-                           const QuantumNumbers& qn) {
-  int B = 0, S = 0, Q = 0;
-  for (const auto ptype : a) {
-    B += ptype->baryon_number();
-    S += ptype->strangeness();
-    Q += ptype->charge();
-  }
-  return (B == qn.baryon_number()) &&
-         (S == qn.strangeness()) &&
-         (Q == qn.charge());
-}
-
-int type_count(const ParticleList &particles, const ParticleTypePtr t) {
-  int cnt = 0;
-  for (const auto &particle : particles) {
-    if (particle.type() == *t) {
-      cnt++;
-    }
-  }
-  return cnt;
-}
-
-double compute_R2(double srts, double m1, double m2) {
-  return (srts > m1 + m2) ? pCM(srts, m1, m2) / (4.0 * M_PI * srts) : 0.0;
-}
-
-double compute_sum_R3(const ParticleTypePtrList& sampled_types,
-              ThreeBodyIntegrals& three_body_int,
-              const QuantumNumbers &cons) {
-  // Compute sum of 3-body integrals for given quantum numbers
-  const int Ntypes = sampled_types.size();
-  FourVector momentum_total = cons.momentum();
-  const double srts = momentum_total.abs();
-  double sum_R3 = 0.0;
-  // std::cout << "sqrts = " << srts << std::endl;
-  for (int i1 = 0; i1 < Ntypes; ++i1) {
-    for (int i2 = 0; i2 <= i1; ++i2) {
-      for (int i3 = 0; i3 <= i2; ++i3) {
-        if (quantum_numbers_match({sampled_types[i1],
-                                   sampled_types[i2],
-                                   sampled_types[i3]}, cons)) {
-          const double tmp = three_body_int.value(srts,
-                                sampled_types[i1]->mass(),
-                                sampled_types[i2]->mass(),
-                                sampled_types[i3]->mass());
-/*          std::cout << tmp * 1E12 << std::endl;
-          if (tmp < 0) {
-            std::cout << srts << " " << sampled_types[i1]->mass() << " " <<
-                         sampled_types[i2]->mass() << " " <<
-                         sampled_types[i3]->mass() << ", R3_ch = " << tmp << std::endl;
-          } 
-*/
-          assert(tmp >= 0);
-          sum_R3 += tmp;
-/*          
-          std::cout << sampled_types[i1]->name()
-                    << sampled_types[i2]->name()
-                    << sampled_types[i3]->name() << " " << tmp * 1E6
-                    << " at srts = " << srts << std::endl;
-*/
-        }
-      }
-    }
-  }
-  // std::cout << std::endl;
-  return sum_R3;
-}
-
-double compute_sum_R2(const ParticleTypePtrList& sampled_types,
-                      const QuantumNumbers &cons) {
-  // Compute sum of 2-body integrals for given quantum numbers
-  const int Ntypes = sampled_types.size();
-  FourVector momentum_total = cons.momentum();
-  const double srts = momentum_total.abs();
-  double sum_R2 = 0.0;
-  for (int i1 = 0; i1 < Ntypes; ++i1) {
-    for (int i2 = 0; i2 <= i1; ++i2) {
-      if (quantum_numbers_match({sampled_types[i1],
-                                 sampled_types[i2]}, cons)) {
-        const double m_i1 = sampled_types[i1]->mass(),
-                     m_i2 = sampled_types[i2]->mass();
-        const double R2 = compute_R2(srts, m_i1, m_i2);
-        sum_R2 += R2;
-      }
-    }
-  }
-  return sum_R2;
-}
-
-void random_two_to_three(ParticleList &particles,
-                         const ParticleTypePtrList& sampled_types,
-                         ThreeBodyIntegrals& three_body_int,
-                         double V) {
-  const int Ntypes = sampled_types.size();
-  const int Npart = particles.size();
-  // Choose 2 random particles
-  int in_index1, in_index2, i1, i2, i3;
-  in_index1 = random::uniform_int(0, Npart - 1);
-  do {
-    in_index2 = random::uniform_int(0, Npart - 1);
-  } while (in_index1 == in_index2);
-  ParticleData in1 = particles[in_index1], in2 = particles[in_index2];
-  QuantumNumbers cons({in1, in2});
-  FourVector momentum_total = cons.momentum();
-  const double srts = momentum_total.abs();
-  const ThreeVector beta_cm = momentum_total.velocity();
-
-  const double sum_R3 = compute_sum_R3(sampled_types, three_body_int, cons);
-  const double sum_R2 = compute_sum_R2(sampled_types, cons);
-
-  if (sum_R3 < 1.e-100) {
-    // std::cout << "Not enough energy (" << srts << " GeV) for 2->3" << std::endl;
-    return;
-  }
-
-  // Choose channel
-  const double r = random::uniform(0.0, sum_R3);
-  double partial_sum_R3 = 0.0;
-  bool channel_found23 = false;
-  for (i1 = 0; i1 < Ntypes && !channel_found23; i1++) {
-    for (i2 = 0; i2 <= i1 && !channel_found23; i2++) {
-      for (i3 = 0; i3 <= i2 && !channel_found23; i3++) {
-        if (quantum_numbers_match({sampled_types[i1],
-                                  sampled_types[i2],
-                                  sampled_types[i3]}, cons)) {
-          const double tmp = three_body_int.value(srts,
-                                sampled_types[i1]->mass(),
-                                sampled_types[i2]->mass(),
-                                sampled_types[i3]->mass());
-          assert(tmp >= 0.0);
-          partial_sum_R3 += tmp;
-          if (partial_sum_R3 >= r) {
-            channel_found23 = true;
-          }
-          if (partial_sum_R3 > sum_R3) {
-            throw std::runtime_error("2->3 partial sum exceeded total!");
-          }
-        }
-      }
-    }
-  }
-  i1--;
-  i2--;
-  i3--;
-  if (!channel_found23) {
-    return;
-  }
-  ParticleData out1{*(sampled_types[i1])},
-               out2{*(sampled_types[i2])},
-               out3{*(sampled_types[i3])};
-
-  sample_3body_phase_space(srts, out1, out2, out3);
-  out1.boost_momentum(-beta_cm);
-  out2.boost_momentum(-beta_cm);
-  out3.boost_momentum(-beta_cm);
-  // std::cout << "In: " << in1.momentum() << " " << in2.momentum() << std::endl;
-  // std::cout << "Out: " << out1.momentum() << " "
-  //                      << out2.momentum() << " "
-  //                      << out3.momentum() << std::endl;
-
-  const double E1 = in1.momentum().x0(),
-               E2 = in2.momentum().x0();
-  const double E1_pr = out1.momentum().x0(),
-               E2_pr = out2.momentum().x0(),
-               E3_pr = out3.momentum().x0();
-
-  const double phase_space_factor = sum_R3 / sum_R2;
-  const double energy_factor = 2.0 * E1_pr * E2_pr * E3_pr / (E1 * E2);
-  ParticleTypePtrList in_types {&(in1.type()), &(in2.type())},
-                      out_types {&(out1.type()), &(out2.type()), &(out3.type())};
-  double spin_factor = 1.0;
-  for (const auto t : out_types) {
-    spin_factor *= static_cast<double>(1 + t->spin());
-  }
-  for (const auto t : in_types) {
-    spin_factor /= static_cast<double>(1 + t->spin());
-  }
-
-  double w = V * pow_int(1.0 / smash::hbarc, 3) * spin_factor *
-             energy_factor * phase_space_factor;
-  double identity_factor = 1.0;
-  if (out1.type() == out2.type() && out2.type() == out3.type()) {
-    identity_factor /= 6;
-  } else if (out1.type() == out2.type() || out2.type() == out3.type()) {
-    identity_factor /= 2;
-  }
-  if (in1.type() == in2.type()) {
-    identity_factor *= 2;
-  }
-  w *= 3.0 / (particles.size() + 1) * identity_factor;
-/*
-  std::cout << "Trying 2->3 (" << in1.type().name() << in2.type().name() << "->"
-            << out1.type().name() << out2.type().name() << out3.type().name()
-            << ") with w = " << w << ", sym_factor: " << sym_factor
-            << ", spin_factor = " << spin_factor << ", ph.sp. factor * 1e6= "
-            << phase_space_factor * 1.e6 << ", srts = " << srts << std::endl;
-*/
-  w = std::min(1.0, w);
-  if (random::canonical() < w) {
-    particles[in_index1] = out1;
-    particles[in_index2] = out2;
-    particles.push_back(out3);
-
-/*
-    std::cout << in1.type().name() << "," << in2.type().name() << "->"
-              << out1.type().name() << "," << out2.type().name()
-              << "," << out3.type().name() << " ; " << srts << std::endl;
-*/
-  }
-/*  std::cout << type_count(particles, &ParticleType::find(pdg::pi_z)) << " pi0 /"
-            << type_count(particles, &ParticleType::find(pdg::pi_p)) << " pi+ /"
-            << type_count(particles, &ParticleType::find(pdg::pi_m)) << " pi-" << std::endl;
 */
 
-}
-
-void random_three_to_two(ParticleList &particles,
-                         const ParticleTypePtrList& sampled_types,
-                         ThreeBodyIntegrals& three_body_int,
-                         double V) {
-  const int Ntypes = sampled_types.size();
-  const int Npart = particles.size();
-  if (Npart < 3) {
-    return;
+std::ostream &operator<<(std::ostream &out,
+    const MicrocanonicalSampler::SamplerParticleList &list) {
+  const size_t N = list.size();
+  out << list[0].type->name();
+  for (size_t i = 0; i < N; i++) {
+    out << "," << list[i].type->name();
   }
-  // Choose 3 random particles
-  int in_index1, in_index2, in_index3, i1, i2;
-  in_index1 = random::uniform_int(0, Npart - 1);
-  do {
-    in_index2 = random::uniform_int(0, Npart - 1);
-  } while (in_index1 == in_index2);
-  do {
-    in_index3 = random::uniform_int(0, Npart - 1);
-  } while (in_index3 == in_index1 || in_index3 == in_index2);
-  ParticleData in1 = particles[in_index1],
-               in2 = particles[in_index2],
-               in3 = particles[in_index3];
-  QuantumNumbers cons({in1, in2, in3});
-  FourVector momentum_total = cons.momentum();
-  const double srts = momentum_total.abs();
-  const ThreeVector beta_cm = momentum_total.velocity();
-
-  const double sum_R3 = compute_sum_R3(sampled_types, three_body_int, cons);
-  const double sum_R2 = compute_sum_R2(sampled_types, cons);
-  if (sum_R2 < 1.e-100) {
-    // std::cout << "Not enough energy (" << srts << " GeV) or wrong quantum"
-    //             " numbers for 3->2" << std::endl;
-    return;
-  }
-
-
-  // Choose channel
-  const double r = random::uniform(0.0, sum_R2);
-  double partial_sum_R2 = 0.0;
-  bool channel_found32 = false;
-  for (i1 = 0; (i1 < Ntypes) && (!channel_found32); i1++) {
-    for (i2 = 0; (i2 <= i1) && (!channel_found32); i2++) {
-     if (quantum_numbers_match({sampled_types[i1],
-                                 sampled_types[i2]}, cons)) {
-        const double tmp = compute_R2(srts,
-                            sampled_types[i1]->mass(),
-                            sampled_types[i2]->mass());
-        partial_sum_R2 += tmp;
-//        std::cout << "Choosing: " << sampled_types[i1]->name() << sampled_types[i2]->name() << " "
-//                  << tmp << "/" << sum_R2 << std::endl;
-        if (partial_sum_R2 >= r) {
-          channel_found32 = true;
-        }
-        if (partial_sum_R2 > sum_R2) {
-          std::cout << partial_sum_R2 << " " << sum_R2 << std::endl;
-          throw std::runtime_error("3->2, partial sum exceeded total!");
-        }
- 
-      }
-    }
-  }
-  i1--;
-  i2--;
-//  std::cout << "Chose: "  << sampled_types[i1]->name() << sampled_types[i2]->name() << std::endl;
-  if (!channel_found32) {
-    // std::cout << "No channel found, R2_sum = " << sum_R2 << std::endl;
-    return;
-  }
-  ParticleData out1{*(sampled_types[i1])},
-               out2{*(sampled_types[i2])};
-
-  const double m1 = out1.type().mass(),
-               m2 = out2.type().mass();
-  const double p_cm = smash::pCM(srts, m1, m2);
-  Angles phitheta;
-  phitheta.distribute_isotropically();
-  const ThreeVector mom = p_cm * phitheta.threevec();
-  const double mom2 = mom.sqr();
-  FourVector p1(std::sqrt(mom2 + m1*m1),  mom),
-             p2(std::sqrt(mom2 + m2*m2), -mom);
-  out1.set_4momentum(p1);
-  out2.set_4momentum(p2);
-  out1.boost_momentum(-beta_cm);
-  out2.boost_momentum(-beta_cm);
-
-  const double E1_pr = in1.momentum().x0(),
-               E2_pr = in2.momentum().x0(),
-               E3_pr = in3.momentum().x0();
-  const double E1 = out1.momentum().x0(),
-               E2 = out2.momentum().x0();
-  const double phase_space_factor = sum_R3 / sum_R2;
-  const double energy_factor = 2.0 * E1_pr * E2_pr * E3_pr / (E1 * E2);
-  ParticleTypePtrList in_types {&(in1.type()), &(in2.type()), &(in3.type())},
-                      out_types {&(out1.type()), &(out2.type())};
-  double spin_factor = 1.0;
-  for (const auto t : in_types) {
-    spin_factor *= static_cast<double>(1 + t->spin());
-  }
-  for (const auto t : out_types) {
-    spin_factor /= static_cast<double>(1 + t->spin());
-  }
-
-  double w = V * pow_int(1.0 / smash::hbarc, 3) * spin_factor *
-             energy_factor * phase_space_factor;
-  w = 1.0 / w;
-  double identity_factor = 1.0;
-  if (out1.type() == out2.type()) {
-    identity_factor /= 2;
-  }
-  if (in1.type() == in2.type() && in2.type() == in3.type()) {
-    identity_factor *= 6;
-  } else if (in1.type() == in2.type() || in2.type() == in3.type()) {
-    identity_factor *= 2;
-  }
-  w *= particles.size() / 3 * identity_factor;
-/*
-  std::cout << "Trying 3->2 (" << in1.type().name() << in2.type().name()
-            << in3.type().name() << "->"
-            << out1.type().name() << out2.type().name()
-            << ") with w = " << w << ", sym_factor: " << sym_factor
-            << ", spin_factor = " << spin_factor << ", ph.sp. factor = "
-            << phase_space_factor << ", en. factor = " << energy_factor
-            <<", srts = " << srts << std::endl;
-*/
-  w = std::min(1.0, w);
-
-  if (random::canonical() < w) {
-    particles[in_index1] = out1;
-    particles[in_index2] = out2;
-    particles.erase(particles.begin() + in_index3);
-/*
-    std::cout << in1.type().name() << "," << in2.type().name() 
-              << "," << in3.type().name() << "->"
-              << out1.type().name() << "," << out2.type().name()
-              << " ; " << srts << std::endl;
-*/
-  }
-/*
-  std::cout << type_count(particles, &ParticleType::find(pdg::pi_z)) << " pi0 /"
-            << type_count(particles, &ParticleType::find(pdg::pi_p)) << " pi+ /"
-            << type_count(particles, &ParticleType::find(pdg::pi_m)) << " pi-" << std::endl;
-*/
-}
-
-int main() {
-  initialize_random_number_generator();
-  load_smash_particles();
-
-  // Select Particle types to sample
-  std::cout << "Selecting types to sample" << std::endl;
-  ParticleTypePtrList sampled_types;
-  for (const ParticleType &ptype : ParticleType::list_all()) { 
-    if (ptype.is_hadron() && ptype.mass() < 1.0) {
-      sampled_types.push_back(&ptype);
-    }
-  }
-
-  // Prepare 3-body integrals
-  std::cout << "Preparing 3-body integrals" << std::endl;
-  ThreeBodyIntegrals three_body_int;
-  std::vector<double> unique_masses;
-  for (const ParticleTypePtr t : sampled_types) {
-    unique_masses.push_back(t->mass());
-  }
-  std::sort(unique_masses.begin(), unique_masses.end());
-  unique_masses.erase(std::unique(unique_masses.begin(), unique_masses.end()),
-                      unique_masses.end() );
-  const double N_masses = unique_masses.size();
-  std::cout << N_masses << " different masses in total" << std::endl;
-  for (unsigned int i = 0; i < N_masses; i++) {
-    for (unsigned int j = 0; j <= i; j++) {
-      for (unsigned int k = 0; k <= j; k++) {
-        three_body_int.add(unique_masses[i], unique_masses[j], unique_masses[k]);
-      }
-    }
-  }
-*/
-
-  HyperSurfacePatch hyper("../hydro_cells.dat",
-      [&](const ParticleTypePtr t) {
-        return t->is_hadron() && t->mass() < 1.0;
-      });
-  std::cout << hyper << std::endl;
-/*  
-  std::cout << "Constructing initial configuration." << std::endl;
-  const double E_tot = 500.0;  // GeV
-  const double V = 1000.0;    // fm^3
-
-  ParticleList particles;
-  ParticleData pi0{ParticleType::find(pdg::pi_z)};
-  constexpr int Npart_init = 200;
-  for (int i = 0; i < Npart_init; i++) {
-    particles.push_back(pi0);
-  }
-  
-  Angles phitheta;
-
-  for (ParticleData &data : particles) {
-    const double momentum_radial = 0.1;
-    phitheta.distribute_isotropically();
-    data.set_4momentum(data.type().mass(), phitheta.threevec() * momentum_radial);
-    data.set_4position(FourVector());
-  }
-
-  FourVector required_total_4mom(E_tot, 0.0, 0.0, 0.0);
-  renormalize_momenta(particles, required_total_4mom);
-
-  std::cout << "Warming up." << std::endl;
-  constexpr int N_warmup = 10000;
-  for (int i = 0; i < N_warmup; ++i) {
-    // std::cout << i << std::endl;
-    if (random::uniform_int(0, 1) == 1) {
-      random_two_to_three(particles, sampled_types, three_body_int, V);
-    } else {
-      random_three_to_two(particles, sampled_types, three_body_int, V);
-    }
-  }
-  std::cout << "Finished warming up." << std::endl;
-  for (const ParticleTypePtr t : sampled_types) {
-    std::cout << t->name() << "  ";
-  }
-  std::cout << std::endl;
-  constexpr int N_decorrelate = 100;
-  constexpr int N_printout = 10000;
-  for (int j = 0; j < N_printout; j++) {
-    for (int i = 0; i < N_decorrelate; ++i) {
-      if (random::uniform_int(0, 1) == 1) {
-        random_two_to_three(particles, sampled_types, three_body_int, V);
-      } else {
-        random_three_to_two(particles, sampled_types, three_body_int, V);
-      }
-    }
-*/
-/*
-    for (const auto &part : particles) {
-      std::cout << part.momentum().abs() << " " << part.momentum().x0() << std::endl;
-    }
-*/
-/*
-    for (const ParticleTypePtr t : sampled_types) {
-      std::cout << type_count(particles, t) << " ";
-    }
-    std::cout << std::endl;
-  }
-
-  QuantumNumbers cons(particles);
-  std::cout << "Final momentum: " << cons.momentum() << std::endl;
-*/
+  return out;
 }
