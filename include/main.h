@@ -1,11 +1,13 @@
 #ifndef MICROCANONICAL_SAMPLING_MAIN_H
 #define MICROCANONICAL_SAMPLING_MAIN_H
 
-#include "smash/particles.h"
-#include "smash/forwarddeclarations.h"
+#include "smash/particletype.h"
 
-int type_count(const smash::ParticleList &particles,
+#include "microcanonical_sampler.h"
+
+int type_count(const MicrocanonicalSampler::SamplerParticleList &particles,
                const smash::ParticleTypePtr t);
+bool is_sampled_type(const smash::ParticleTypePtr t);
 void initialize_random_number_generator();
 void load_smash_particles();
 

@@ -45,7 +45,7 @@ class MicrocanonicalSampler {
   /// Cannot be copied
   MicrocanonicalSampler &operator=(const MicrocanonicalSampler &) = delete;
 
-//  void initialize(const HyperSurfacePatch& hypersurface);
+  void initialize(const HyperSurfacePatch& hypersurface);
   void one_markov_chain_step(const HyperSurfacePatch& hypersurface);
 
   /// Set the level of debug printout
@@ -74,7 +74,7 @@ class MicrocanonicalSampler {
 
   void random_two_to_three(const HyperSurfacePatch& hypersurface);
   void random_three_to_two(const HyperSurfacePatch& hypersurface);
-//  void renormalize_momenta(smash::FourVector required_4mom);
+  void renormalize_momenta(const smash::FourVector& required_4mom);
 
   SamplerParticleList particles_;
   std::vector<smash::ParticleTypePtr> sampled_types_;

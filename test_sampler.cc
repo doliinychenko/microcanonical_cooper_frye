@@ -64,102 +64,52 @@ void load_smash_particles() {
   }
 }
 
-int type_count(const ParticleList &particles, const ParticleTypePtr t) {
+int type_count(const MicrocanonicalSampler::SamplerParticleList &particles,
+               const ParticleTypePtr t) {
   int cnt = 0;
   for (const auto &particle : particles) {
-    if (particle.type() == *t) {
+    if (particle.type == t) {
       cnt++;
     }
   }
   return cnt;
 }
 
+bool is_sampled_type(const smash::ParticleTypePtr t) {
+  return t->is_hadron() && t->mass() < 1.0;
+}
+
 int main() {
   initialize_random_number_generator();
   load_smash_particles();
 
-  // Select Particle types to sample
-  std::cout << "Selecting types to sample" << std::endl;
-  ParticleTypePtrList sampled_types;
-  for (const ParticleType &ptype : ParticleType::list_all()) {
-    if (ptype.is_hadron() && ptype.mass() < 1.0) {
-      sampled_types.push_back(&ptype);
-    }
-  }
-
-  HyperSurfacePatch hyper("../hydro_cells.dat",
-      [&](const ParticleTypePtr t) {
-        return t->is_hadron() && t->mass() < 1.0;
-      });
+  HyperSurfacePatch hyper("../hydro_cells.dat", is_sampled_type);
   std::cout << hyper << std::endl;
 
-  MicrocanonicalSampler sampler([&](const ParticleTypePtr t) {
-    return t->is_hadron() && t->mass() < 1.0;
-  }, 1);
-
-/*
-  std::cout << "Constructing initial configuration." << std::endl;
-  const double E_tot = 500.0;  // GeV
-  const double V = 1000.0;    // fm^3
-
-  ParticleList particles;
-  ParticleData pi0{ParticleType::find(pdg::pi_z)};
-  constexpr int Npart_init = 20;
-  for (int i = 0; i < Npart_init; i++) {
-    particles.push_back(pi0);
-  }
-
-  Angles phitheta;
-
-  for (ParticleData &data : particles) {
-    const double momentum_radial = 0.1;
-    phitheta.distribute_isotropically();
-    data.set_4momentum(data.type().mass(), phitheta.threevec() * momentum_radial);
-    data.set_4position(FourVector());
-  }
-
-  FourVector required_total_4mom(E_tot, 0.0, 0.0, 0.0);
-  renormalize_momenta(particles, required_total_4mom);
+  MicrocanonicalSampler sampler(is_sampled_type, 1);
+  sampler.initialize(hyper);
 
   std::cout << "Warming up." << std::endl;
   constexpr int N_warmup = 10000;
   for (int i = 0; i < N_warmup; ++i) {
     // std::cout << i << std::endl;
-    if (random::uniform_int(0, 1) == 1) {
-      random_two_to_three(particles, sampled_types, three_body_int, V);
-    } else {
-      random_three_to_two(particles, sampled_types, three_body_int, V);
-    }
+    sampler.one_markov_chain_step(hyper);
   }
   std::cout << "Finished warming up." << std::endl;
-  for (const ParticleTypePtr t : sampled_types) {
-    std::cout << t->name() << "  ";
-  }
-  std::cout << std::endl;
+
   constexpr int N_decorrelate = 100;
   constexpr int N_printout = 10000;
   for (int j = 0; j < N_printout; j++) {
     for (int i = 0; i < N_decorrelate; ++i) {
-      if (random::uniform_int(0, 1) == 1) {
-        random_two_to_three(particles, sampled_types, three_body_int, V);
-      } else {
-        random_three_to_two(particles, sampled_types, three_body_int, V);
-      }
+      sampler.one_markov_chain_step(hyper);
+    }
+/*
+    for (const auto &part : sampler.particles()) {
+      std::cout << part.momentum.abs() << " " << part.momentum.x0() << std::endl;
     }
 */
-/*
-    for (const auto &part : particles) {
-      std::cout << part.momentum().abs() << " " << part.momentum().x0() << std::endl;
-    }
-*/
-/*
-    for (const ParticleTypePtr t : sampled_types) {
-      std::cout << type_count(particles, t) << " ";
-    }
-    std::cout << std::endl;
   }
 
-  QuantumNumbers cons(particles);
-  std::cout << "Final momentum: " << cons.momentum() << std::endl;
-*/
+  MicrocanonicalSampler::QuantumNumbers cons(sampler.particles());
+  std::cout << "Final momentum: " << cons.momentum << std::endl;
 }
