@@ -65,10 +65,10 @@ void load_smash_particles() {
 }
 
 int type_count(const MicrocanonicalSampler::SamplerParticleList &particles,
-               const ParticleTypePtr t) {
+               const ParticleTypePtr t, size_t cell_number) {
   int cnt = 0;
   for (const auto &particle : particles) {
-    if (particle.type == t) {
+    if (particle.type == t && cell_number == particle.cell_index) {
       cnt++;
     }
   }
@@ -76,7 +76,7 @@ int type_count(const MicrocanonicalSampler::SamplerParticleList &particles,
 }
 
 bool is_sampled_type(const smash::ParticleTypePtr t) {
-  return t->is_hadron() && t->mass() < 1.0;
+  return t->is_hadron() && t->mass() < 0.2 && t->charge() == 0;
 }
 
 int main() {
@@ -86,30 +86,50 @@ int main() {
   HyperSurfacePatch hyper("../hydro_cells.dat", is_sampled_type);
   std::cout << hyper << std::endl;
 
-  MicrocanonicalSampler sampler(is_sampled_type, 1);
+  MicrocanonicalSampler sampler(is_sampled_type, 0);
   sampler.initialize(hyper);
 
   std::cout << "Warming up." << std::endl;
-  constexpr int N_warmup = 10000;
+  constexpr int N_warmup = 100000;
   for (int i = 0; i < N_warmup; ++i) {
     // std::cout << i << std::endl;
     sampler.one_markov_chain_step(hyper);
   }
   std::cout << "Finished warming up." << std::endl;
 
+  ParticleTypePtrList sampled_types;
+  for (const ParticleType &ptype : ParticleType::list_all()) {
+    if (is_sampled_type(&ptype)) {
+      sampled_types.push_back(&ptype);
+    }
+  }
+  for (const ParticleTypePtr t : sampled_types) {
+    std::cout << t->name() << "  ";
+  }
+  std::cout << std::endl;
+
   constexpr int N_decorrelate = 100;
-  constexpr int N_printout = 10000;
+  constexpr int N_printout = 100000;
   for (int j = 0; j < N_printout; j++) {
     for (int i = 0; i < N_decorrelate; ++i) {
       sampler.one_markov_chain_step(hyper);
     }
-/*
-    for (const auto &part : sampler.particles()) {
-      std::cout << part.momentum.abs() << " " << part.momentum.x0() << std::endl;
+    for (const ParticleTypePtr t : sampled_types) {
+      std::cout << " " << type_count(sampler.particles(), t, 0);
     }
-*/
+    for (const ParticleTypePtr t : sampled_types) {
+      std::cout << " " << type_count(sampler.particles(), t, 1);
+    }
+    for (const ParticleTypePtr t : sampled_types) {
+      std::cout << " " << type_count(sampler.particles(), t, 2);
+    }
+    std::cout << std::endl;
   }
 
   MicrocanonicalSampler::QuantumNumbers cons(sampler.particles());
-  std::cout << "Final momentum: " << cons.momentum << std::endl;
+  assert((cons.momentum - hyper.pmu()).abs() < 1.e-6);
+  assert(cons.B == hyper.B());
+  assert(cons.S == hyper.S());
+  assert(cons.Q == hyper.Q());
+  // std::cout << "Final momentum diff: " << cons.momentum - hyper.pmu() << std::endl;
 }

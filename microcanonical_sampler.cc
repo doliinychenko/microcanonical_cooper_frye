@@ -265,12 +265,12 @@ void MicrocanonicalSampler::sample_3body_phase_space(double srts,
                                 -pcm_ab * phitheta.threevec());
   a.momentum = a.momentum.LorentzBoost(beta_cm);
   b.momentum = b.momentum.LorentzBoost(beta_cm);
-  // todo: remove this line after quick check
-  assert(std::abs((a.momentum + b.momentum + c.momentum).abs()) < 1.e-12);
   if (debug_printout_ == 3) {
     std::cout << "Sample 3-body phase space: total momentum = "
               << a.momentum + b.momentum + c.momentum << std::endl;
   }
+  // assert(std::abs((a.momentum + b.momentum + c.momentum
+  //                 - smash::FourVector(srts, 0, 0, 0)).abs()) < 1.e-12);
 }
 
 bool MicrocanonicalSampler::quantum_numbers_match(
@@ -340,7 +340,7 @@ void MicrocanonicalSampler::random_two_to_three(
   const double sum_R3 = compute_sum_R3(cons);
   const double sum_R2 = compute_sum_R2(cons);
 
-  if (sum_R3 < 1.e-100) {
+  if (sum_R3 < 1.e-16) {
     if (debug_printout_) {
       std::cout << "Not enough energy ("
                 << srts << " GeV) for 2->3" << std::endl;
@@ -382,6 +382,7 @@ void MicrocanonicalSampler::random_two_to_three(
   }
   SamplerParticleList out;
   out.clear();
+  out.resize(3);
   std::array<size_t,3> cell =
     {smash::random::uniform_int<size_t>(0, Ncells - 1),
      smash::random::uniform_int<size_t>(0, Ncells - 1),
@@ -401,7 +402,6 @@ void MicrocanonicalSampler::random_two_to_three(
                          << out[1].momentum << " "
                          << out[2].momentum << std::endl;
   }
-
   // At this point the proposal function is set
   // Further is the calculation of probability to accept it
   const double phase_space_factor = sum_R3 / sum_R2;
@@ -523,6 +523,7 @@ void MicrocanonicalSampler::random_three_to_two(
   }
   SamplerParticleList out;
   out.clear();
+  out.resize(2);
   std::array<size_t,2> cell =
     {smash::random::uniform_int<size_t>(0, Ncells - 1),
      smash::random::uniform_int<size_t>(0, Ncells - 1)};
@@ -672,7 +673,7 @@ std::ostream &operator<<(std::ostream &out,
     const MicrocanonicalSampler::SamplerParticleList &list) {
   const size_t N = list.size();
   out << list[0].type->name();
-  for (size_t i = 0; i < N; i++) {
+  for (size_t i = 1; i < N; i++) {
     out << "," << list[i].type->name();
   }
   return out;
