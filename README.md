@@ -1,3 +1,5 @@
+# Sampling particles on a hypersurface with account of energy, momentum, baryon number, strangeness and charge conservation.
+
 Turning relativistic hydrodynamics into
 particles including local event-by-event conservation laws: energy, momentum, baryon number,
 strangeness, electric charge. Isospin projection conservation follows from the
@@ -34,9 +36,12 @@ Sampled particles, characterized by
 
 ## Current state
 
-The project is currently at the early research and development stage. Currently it is only working
-for a hypersurface, that consists of one cell with dsigma_mu = (V, 0, 0, 0).
-I call this "a box setup".
+The project is currently at the research and development stage. It
+is supposed to work for an arbitrary hypersurface, but not yet properly
+tested, documented and cleaned up.
+
+The sampled local distribution is limited to Boltzmann, but it is extendable
+to viscous-corrected distribution and quantum statistics.
 
 
 ## Prequisites
