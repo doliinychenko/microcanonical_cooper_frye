@@ -82,11 +82,13 @@ bool is_sampled_type(const smash::ParticleTypePtr t) {
 int main() {
   initialize_random_number_generator();
   load_smash_particles();
+  constexpr bool quantum_statistics = false;
 
-  HyperSurfacePatch hyper("../hydro_cells.dat", is_sampled_type);
+  HyperSurfacePatch hyper("../hydro_cells.dat", is_sampled_type,
+                          quantum_statistics);
   std::cout << hyper << std::endl;
 
-  MicrocanonicalSampler sampler(is_sampled_type, 0);
+  MicrocanonicalSampler sampler(is_sampled_type, 0, quantum_statistics);
   sampler.initialize(hyper);
 
   std::cout << "Warming up." << std::endl;
@@ -108,7 +110,7 @@ int main() {
   }
   std::cout << std::endl;
 
-  constexpr int N_decorrelate = 100;
+  constexpr int N_decorrelate = 200;
   constexpr int N_printout = 100000;
   for (int j = 0; j < N_printout; j++) {
     for (int i = 0; i < N_decorrelate; ++i) {
@@ -116,12 +118,6 @@ int main() {
     }
     for (const ParticleTypePtr t : sampled_types) {
       std::cout << " " << type_count(sampler.particles(), t, 0);
-    }
-    for (const ParticleTypePtr t : sampled_types) {
-      std::cout << " " << type_count(sampler.particles(), t, 1);
-    }
-    for (const ParticleTypePtr t : sampled_types) {
-      std::cout << " " << type_count(sampler.particles(), t, 2);
     }
     std::cout << std::endl;
   }

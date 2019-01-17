@@ -39,7 +39,8 @@ class MicrocanonicalSampler {
 
   MicrocanonicalSampler(const std::function<bool(const smash::ParticleTypePtr)>
                         &is_sampled,
-                        int debug_printout);
+                        int debug_printout,
+                        bool quantum_statistics);
   /// Cannot be copied
   MicrocanonicalSampler(const MicrocanonicalSampler &) = delete;
   /// Cannot be copied
@@ -50,6 +51,8 @@ class MicrocanonicalSampler {
 
   /// Set the level of debug printout
   void set_debug_printout(int a) { debug_printout_ = a; }
+  /// Set quantum statistics
+  void set_quantum_statistics(bool qs) { quantum_statistics_ = qs; }
   /// Gives read-only access to particles
   const SamplerParticleList& particles() const { return particles_; }
  private:
@@ -66,6 +69,8 @@ class MicrocanonicalSampler {
                                 SamplerParticle &c);
   bool quantum_numbers_match(const smash::ParticleTypePtrList& a,
                              const QuantumNumbers& qn);
+  double mu_minus_E_over_T(const SamplerParticle& p,
+                           const HyperSurfacePatch& hypersurface);
   double compute_cells_factor(const SamplerParticleList& in,
                               const SamplerParticleList& out,
                               const HyperSurfacePatch& hypersurface);
@@ -80,6 +85,7 @@ class MicrocanonicalSampler {
   std::vector<smash::ParticleTypePtr> sampled_types_;
   ThreeBodyIntegrals three_body_int_;
   int debug_printout_;
+  bool quantum_statistics_;
 };
 
 /// Convenient printout of the SamplerParticleList

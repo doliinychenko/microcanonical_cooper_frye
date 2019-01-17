@@ -8,7 +8,11 @@
 
 HyperSurfacePatch::HyperSurfacePatch(
     const std::string &input_file,
-    const std::function<bool(const smash::ParticleTypePtr)> &is_sampled) {
+    const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
+    bool quantum_statistics) :
+    quantum_statistics_(quantum_statistics),
+    quantum_series_max_terms_(100),
+    quantum_series_rel_precision_(1e-12) {
   for (const smash::ParticleType &ptype : smash::ParticleType::list_all()) {
     if (is_sampled(&ptype)) {
       sampled_types_.push_back(&ptype);
@@ -62,22 +66,57 @@ void HyperSurfacePatch::compute_totals() {
       // dsigma in the frame, where umu = (1, 0, 0, 0)
       // dsigma[0] in this frame should be equal to dsigma_mu u^mu in any frame
       smash::FourVector dsigma = cell.dsigma.LorentzBoost(cell.u.velocity());
-      double x = (mu - m) / cell.T;
-      x = std::exp(x);
-      const double m_over_T = m / cell.T;
-      const double k2 = gsl_sf_bessel_Kn_scaled(2, m / cell.T);
-      const double k1 = gsl_sf_bessel_Kn_scaled(1, m / cell.T);
-      const double number_from_cell = cell.T * m * m * x * dsigma.x0() * k2 *
+      const double T = cell.T;
+      const double z = m / T;
+      double mu_m_over_T = (mu - m) / T;
+      if (mu_m_over_T > 0 and quantum_statistics_) {
+        std::cout << "Warning: quantum expressions for " << t->name() <<
+                     " do not converge, m < chemical potential." << std::endl;
+      }
+      // Compute parts of expressions, different for classical vs.
+      // quantum statistics: x1 for density, x2 for energy, and x3
+      // for momentum
+      double x1 = 0.0, x2 = 0.0, x3 = 0.0;
+      for (unsigned int k = 1; k < quantum_series_max_terms_; k++) {
+        if (k > 1 and !quantum_statistics_) {
+          break;
+        }
+        const double k1 = gsl_sf_bessel_Kn_scaled(1, z * k);
+        const double k2 = gsl_sf_bessel_Kn_scaled(2, z * k);
+        const double x = std::exp(mu_m_over_T * k);
+        double x1_summand = z * z / k * k2 * x;
+        double x2_summand = z * z / (k * k) * (3 * k2 + k * z * k1) * x;
+        double x3_summand = x1_summand / k;
+        // std::cout << "k = " << k
+        //           << ", x1_summand*factor*1000 = " << x1_summand*factor*1000
+        //           << ", x2_summand = " << x2_summand <<
+        //           << ", x3_summand = " << x3_summand << std::endl;
+        if (k > 1 and
+            x1_summand < x1 * quantum_series_rel_precision_ and
+            x2_summand < x2 * quantum_series_rel_precision_ and
+            x3_summand < x3 * quantum_series_rel_precision_) {
+          break;
+        }
+        if (k % 2 == 0 and t->is_baryon()) {
+          x1_summand = -x1_summand;
+          x2_summand = -x2_summand;
+          x3_summand = -x3_summand;
+        }
+        x1 += x1_summand;
+        x2 += x2_summand;
+        x3 += x3_summand;
+      }
+
+      const double number_from_cell = T*T*T * x1 * dsigma.x0() *
                                       t->pdgcode().spin_degeneracy() * factor;
       B_tot_nonint_ += t->baryon_number() * number_from_cell;
       S_tot_nonint_ += t->strangeness() * number_from_cell;
       Q_tot_nonint_ += t->charge() * number_from_cell;
-      smash::FourVector pmu_cell(dsigma.x0() * (3.0 * k2 + m_over_T * k1),
-                                 -dsigma.x1() * k2,
-                                 -dsigma.x2() * k2,
-                                 -dsigma.x3() * k2);
-      pmu_cell *= (cell.T * cell.T * m * m * x *
-                   t->pdgcode().spin_degeneracy() * factor);
+      smash::FourVector pmu_cell(dsigma.x0() * x2,
+                                 -dsigma.x1() * x3,
+                                 -dsigma.x2() * x3,
+                                 -dsigma.x3() * x3);
+      pmu_cell *= T*T*T*T * t->pdgcode().spin_degeneracy() * factor;
       pmu_cell = pmu_cell.LorentzBoost(-cell.u.velocity());
       pmu_tot_ += pmu_cell;
       // std::cout << t.name() << " number: " << number_from_cell << std::endl;
@@ -95,6 +134,8 @@ std::ostream &operator<<(std::ostream &out, const HyperSurfacePatch &patch) {
              << ", B = " << patch.B()
              << ", S = " << patch.S()
              << ", Q = " << patch.Q()
-             << ", n_cells = " << patch.Ncells();
+             << ", n_cells = " << patch.Ncells()
+             << ", quantum statistics "
+             << (patch.quantum_statistics() ? "ON" : "OFF");
   // clang-format on
 }

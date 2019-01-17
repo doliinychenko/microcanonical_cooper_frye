@@ -16,8 +16,10 @@
 
 MicrocanonicalSampler::MicrocanonicalSampler(
     const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
-    int debug_printout)
-  : debug_printout_(debug_printout) {
+    int debug_printout,
+    bool quantum_statistics)
+  : debug_printout_(debug_printout),
+    quantum_statistics_(quantum_statistics) {
   // Initialize sampled types
   if (debug_printout_) {
     std::cout << "Initializing sampled types..." << std::endl;
@@ -285,25 +287,38 @@ bool MicrocanonicalSampler::quantum_numbers_match(
   return (B == qn.B) && (S == qn.S) && (Q == qn.Q);
 }
 
+double MicrocanonicalSampler::mu_minus_E_over_T(const SamplerParticle& p,
+    const HyperSurfacePatch& hypersurface) {
+    const HyperSurfacePatch::hydro_cell c = hypersurface.cell(p.cell_index);
+    const double mu = c.muB * p.type->baryon_number() +
+                      c.muS * p.type->strangeness() +
+                      c.muQ * p.type->charge();
+    return (mu - p.momentum.Dot(c.u)) / c.T;
+}
+
 double MicrocanonicalSampler::compute_cells_factor(
     const SamplerParticleList& in, const SamplerParticleList& out,
     const HyperSurfacePatch& hypersurface) {
   double cells_factor = 0.0;
-  for (const SamplerParticle& p : out) {
-    const HyperSurfacePatch::hydro_cell c = hypersurface.cell(p.cell_index);
-    const double mu = c.muB * p.type->baryon_number() +
-                      c.muS * p.type->strangeness() +
-                      c.muQ * p.type->charge();
-    cells_factor += (mu - p.momentum.Dot(c.u)) / c.T;
+  if (!quantum_statistics_) {
+    for (const SamplerParticle& p : out) {
+      cells_factor += mu_minus_E_over_T(p, hypersurface);
+    }
+    for (const SamplerParticle& p : in) {
+      cells_factor -= mu_minus_E_over_T(p, hypersurface);
+    }
+    cells_factor = std::exp(cells_factor);
+  } else {
+    cells_factor = 1.0;
+    for (const SamplerParticle& p : in) {
+      const double x = std::exp(- mu_minus_E_over_T(p, hypersurface));
+      cells_factor *= p.type->is_meson() ? (x - 1) : (x + 1);
+    }
+    for (const SamplerParticle& p : out) {
+      const double x = std::exp(- mu_minus_E_over_T(p, hypersurface));
+      cells_factor /= p.type->is_meson() ? (x - 1) : (x + 1);
+    }
   }
-  for (const SamplerParticle& p : in) {
-    const HyperSurfacePatch::hydro_cell c = hypersurface.cell(p.cell_index);
-    const double mu = c.muB * p.type->baryon_number() +
-                      c.muS * p.type->strangeness() +
-                      c.muQ * p.type->charge();
-    cells_factor -= (mu - p.momentum.Dot(c.u)) / c.T;
-  }
-  cells_factor = std::exp(cells_factor);
   return cells_factor;
 }
 
