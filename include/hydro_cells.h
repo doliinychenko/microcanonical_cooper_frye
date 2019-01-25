@@ -2,6 +2,7 @@
 #define MICROCANONICAL_SAMPLER_HYDRO_CELLS_H
 
 #include <vector>
+#include <functional>
 
 #include "smash/fourvector.h"
 #include "smash/particletype.h"
