@@ -62,10 +62,8 @@ class MicrocanonicalSampler {
   /**
    */
   double compute_R2(double srts, double m1, double m2);
-  /// Compute sum of 3-body integrals for given quantum numbers
-  double compute_sum_R3(const QuantumNumbers &cons);
-  /// Compute sum of 2-body integrals for given quantum numbers
-  double compute_sum_R2(const QuantumNumbers &cons);
+  size_t N_available_channels3(std::array<int, 3>& BSQ, double srts);
+  size_t N_available_channels2(std::array<int, 3>& BSQ, double srts);
   void sample_3body_phase_space(double srts,
                                 SamplerParticle &a,
                                 SamplerParticle &b,

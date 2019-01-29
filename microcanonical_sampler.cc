@@ -273,42 +273,6 @@ double MicrocanonicalSampler::compute_R2(double srts, double m1, double m2) {
                           : 0.0;
 }
 
-double MicrocanonicalSampler::compute_sum_R3(const QuantumNumbers &cons) {
-  smash::FourVector momentum_total = cons.momentum;
-  const double srts = momentum_total.abs();
-  std::array<int, 3> BSQ{cons.B, cons.S, cons.Q};
-  double sum_R3 = 0.0;
-  for (const std::array<smash::ParticleTypePtr,3> &t : channels3_[BSQ]) {
-    if (t[0]->mass() + t[1]->mass() + t[2]->mass() > srts) {
-      break;
-    }
-    const double tmp = three_body_int_.value(srts,
-                       t[0]->mass(), t[1]->mass(), t[2]->mass());
-    sum_R3 += tmp;
-    if (debug_printout_ >= 2) {
-      std::cout << t[0]->name() << t[1]->name() << t[2]->name()
-                << " " << tmp * 1E6
-                << " at srts = " << srts << std::endl;
-    }
-  }
-  return sum_R3;
-}
-
-double MicrocanonicalSampler::compute_sum_R2(const QuantumNumbers &cons) {
-  smash::FourVector momentum_total = cons.momentum;
-  const double srts = momentum_total.abs();
-  std::array<int, 3> BSQ{cons.B, cons.S, cons.Q};
-  double sum_R2 = 0.0;
-  for (const std::array<smash::ParticleTypePtr, 2> &t : channels2_[BSQ]) {
-    if (t[0]->mass() + t[1]->mass() > srts) {
-      break;
-    }
-    const double R2 = compute_R2(srts, t[0]->mass() , t[1]->mass());
-    sum_R2 += R2;
-  }
-  return sum_R2;
-}
-
 void MicrocanonicalSampler::sample_3body_phase_space(double srts,
                               SamplerParticle &a,
                               SamplerParticle &b,
@@ -394,6 +358,34 @@ double MicrocanonicalSampler::compute_spin_factor(
   return spin_factor;
 }
 
+size_t MicrocanonicalSampler::N_available_channels3(std::array<int, 3>& BSQ,
+                                                    double srts) {
+  size_t N_available_channels = 0;
+  if (channels3_.find(BSQ) != channels3_.end()) {
+    for (const std::array<smash::ParticleTypePtr,3> &t : channels3_[BSQ]) {
+      if (t[0]->mass() + t[1]->mass() + t[2]->mass() > srts) {
+        break;
+      }
+      N_available_channels++;
+    }
+  }
+  return N_available_channels;
+}
+
+size_t MicrocanonicalSampler::N_available_channels2(std::array<int, 3>& BSQ,
+                                                    double srts) {
+  size_t N_available_channels = 0;
+  if (channels2_.find(BSQ) != channels2_.end()) {
+    for (const std::array<smash::ParticleTypePtr,2> &t : channels2_[BSQ]) {
+      if (t[0]->mass() + t[1]->mass() > srts) {
+        break;
+      }
+      N_available_channels++;
+    }
+  }
+  return N_available_channels;
+}
+
 
 void MicrocanonicalSampler::random_two_to_three(
                             const HyperSurfacePatch& hypersurface) {
@@ -411,10 +403,12 @@ void MicrocanonicalSampler::random_two_to_three(
   const double srts = momentum_total.abs();
   const smash::ThreeVector beta_cm = momentum_total.velocity();
 
-  const double sum_R3 = compute_sum_R3(cons);
-  const double sum_R2 = compute_sum_R2(cons);
+  // Choose channel
+  std::array<int, 3> BSQ{cons.B, cons.S, cons.Q};
+  size_t N3 = N_available_channels3(BSQ, srts),
+         N2 = N_available_channels2(BSQ, srts);
 
-  if (sum_R3 < 1.e-16) {
+  if (N3 == 0 || N2 == 0) {
     if (debug_printout_) {
       std::cout << "Not enough energy ("
                 << srts << " GeV) for 2->3" << std::endl;
@@ -423,7 +417,6 @@ void MicrocanonicalSampler::random_two_to_three(
     return;
   }
 
-  // Choose channel
   SamplerParticleList out;
   out.clear();
   out.resize(3);
@@ -431,38 +424,14 @@ void MicrocanonicalSampler::random_two_to_three(
       {smash::random::uniform_int<size_t>(0, Ncells - 1),
        smash::random::uniform_int<size_t>(0, Ncells - 1),
        smash::random::uniform_int<size_t>(0, Ncells - 1)};
-  const double r = smash::random::uniform(0.0, sum_R3);
-  double partial_sum_R3 = 0.0;
-  bool channel_found23 = false;
-  std::array<int, 3> BSQ{cons.B, cons.S, cons.Q};
-  if (channels3_.find(BSQ) != channels3_.end()) {
-    for (const std::array<smash::ParticleTypePtr,3> &t : channels3_[BSQ]) {
-      if (t[0]->mass() + t[1]->mass() + t[2]->mass() > srts) {
-        break;
-      }
-      const double tmp = three_body_int_.value(srts,
-                         t[0]->mass(), t[1]->mass(), t[2]->mass());
-      assert(tmp >= 0.0);
-      partial_sum_R3 += tmp;
-      //std::cout << t[0]->name() << t[1]->name() << t[2]->name() << " "
-      //          << partial_sum_R3 << "/" << sum_R3 << ", r = " << r << std::endl;
-
-      if (partial_sum_R3 >= r) {
-        channel_found23 = true;
-        out[0] = {smash::FourVector(), t[0], cell[0]};
-        out[1] = {smash::FourVector(), t[1], cell[1]};
-        out[2] = {smash::FourVector(), t[2], cell[2]};
-        break;
-      }
-      if (partial_sum_R3 > sum_R3) {
-        std::cout << "Discrepancy: " << sum_R3 - partial_sum_R3 << std::endl;
-        throw std::runtime_error("2->3 partial sum exceeded total!");
-      }
-    }
-  }
-  if (!channel_found23) {
-    return;
-  }
+  size_t i_channel = smash::random::uniform_int<size_t>(0, N3 - 1);
+  std::array<smash::ParticleTypePtr, 3> out_types = channels3_[BSQ][i_channel];
+  const double R3 = three_body_int_.value(srts,
+       out_types[0]->mass(), out_types[1]->mass(), out_types[2]->mass());
+  const double R2 = compute_R2(srts, in[0].type->mass(), in[1].type->mass());
+  out[0] = {smash::FourVector(), out_types[0], cell[0]};
+  out[1] = {smash::FourVector(), out_types[1], cell[1]};
+  out[2] = {smash::FourVector(), out_types[2], cell[2]};
 
 
   sample_3body_phase_space(srts, out[0], out[1], out[2]);
@@ -478,7 +447,7 @@ void MicrocanonicalSampler::random_two_to_three(
   }
   // At this point the proposal function is set
   // Further is the calculation of probability to accept it
-  const double phase_space_factor = sum_R3 / sum_R2;
+  const double phase_space_factor = R3 / R2 * N3 / N2;
   const double spin_factor = compute_spin_factor(in, out);
 
   double combinatorial_factor = 3.0 / (Npart + 1);
@@ -555,58 +524,33 @@ void MicrocanonicalSampler::random_three_to_two(
   const double srts = momentum_total.abs();
   const smash::ThreeVector beta_cm = momentum_total.velocity();
 
-  const double sum_R3 = compute_sum_R3(cons);
-  const double sum_R2 = compute_sum_R2(cons);
-  if (sum_R2 < 1.e-100) {
+  // Choose channel
+  std::array<int, 3> BSQ{cons.B, cons.S, cons.Q};
+  size_t N3 = N_available_channels3(BSQ, srts),
+         N2 = N_available_channels2(BSQ, srts);
+  if (N3 == 0 || N2 == 0) {
     if (debug_printout_) {
       std::cout << "Not enough energy (" << srts << " GeV) or wrong quantum"
                    " numbers for 3->2" << std::endl;
     }
+    rejected32_count_++;
     return;
   }
 
-
-  // Choose channel
   SamplerParticleList out;
   out.clear();
   out.resize(2);
   std::array<size_t,2> cell =
     {smash::random::uniform_int<size_t>(0, Ncells - 1),
      smash::random::uniform_int<size_t>(0, Ncells - 1)};
-
-  const double r = smash::random::uniform(0.0, sum_R2);
-  double partial_sum_R2 = 0.0;
-  bool channel_found32 = false;
-  std::array<int, 3> BSQ{cons.B, cons.S, cons.Q};
-  if (channels2_.find(BSQ) != channels2_.end()) {
-    for (const std::array<smash::ParticleTypePtr, 2> &t : channels2_[BSQ]) {
-      if (t[0]->mass() + t[1]->mass() > srts) {
-        break;
-      }
-      const double tmp = compute_R2(srts, t[0]->mass() , t[1]->mass());
-      partial_sum_R2 += tmp;
-      // std::cout << t[0]->name() << t[1]->name() << " "
-      //          << partial_sum_R2 << "/" << sum_R2 << ", r = " << r << std::endl;
-
-      if (partial_sum_R2 >= r) {
-        channel_found32 = true;
-        out[0] = {smash::FourVector(), t[0], cell[0]};
-        out[1] = {smash::FourVector(), t[1], cell[1]};
-        break;
-      }
-      if (partial_sum_R2 > sum_R2) {
-        std::cout << partial_sum_R2 << " " << sum_R2 << std::endl;
-        throw std::runtime_error("3->2, partial sum exceeded total!");
-      }
-    }
-  }
-  if (!channel_found32) {
-    if (debug_printout_ == 2) {
-      std::cout << "No channel found, R2_sum = " << sum_R2 << std::endl;
-    }
-    return;
-  }
-
+  size_t i_channel = smash::random::uniform_int<size_t>(0, N2 - 1);
+  std::array<smash::ParticleTypePtr, 2> out_types = channels2_[BSQ][i_channel];
+  const double R3 = three_body_int_.value(srts,
+      in[0].type->mass(), in[1].type->mass(), in[2].type->mass());
+  const double R2 =
+      compute_R2(srts, out_types[0]->mass(), out_types[1]->mass());
+  out[0] = {smash::FourVector(), out_types[0], cell[0]};
+  out[1] = {smash::FourVector(), out_types[1], cell[1]};
 
   const double m1 = out[0].type->mass(),
                m2 = out[1].type->mass();
@@ -622,7 +566,7 @@ void MicrocanonicalSampler::random_three_to_two(
 
   // At this point the proposal function is set
   // Further is the calculation of probability to accept it
-  const double phase_space_factor = sum_R2 / sum_R3;
+  const double phase_space_factor = R2 / R3 * N2 / N3;
   const double spin_factor = compute_spin_factor(in, out);
 
   double combinatorial_factor = static_cast<double>(Npart) / 3.0;

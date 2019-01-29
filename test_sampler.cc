@@ -76,7 +76,7 @@ int type_count(const MicrocanonicalSampler::SamplerParticleList &particles,
 }
 
 bool is_sampled_type(const smash::ParticleTypePtr t) {
-  return t->is_hadron() && t->mass() < 0.2 && t->charge() == 0;
+  return t->is_hadron() && t->mass() < 1.0;
 }
 
 int main() {
@@ -92,7 +92,7 @@ int main() {
   sampler.initialize(hyper);
 
   std::cout << "Warming up." << std::endl;
-  constexpr int N_warmup = 100000;
+  constexpr int N_warmup = 1000000;
   for (int i = 0; i < N_warmup; ++i) {
     // std::cout << i << std::endl;
     sampler.one_markov_chain_step(hyper);
