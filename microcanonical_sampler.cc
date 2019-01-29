@@ -419,6 +419,7 @@ void MicrocanonicalSampler::random_two_to_three(
       std::cout << "Not enough energy ("
                 << srts << " GeV) for 2->3" << std::endl;
     }
+    rejected23_count_++;
     return;
   }
 
@@ -524,8 +525,9 @@ void MicrocanonicalSampler::random_two_to_three(
     if (debug_printout_ == 1) {
       std::cout << in << "->" << out << ";" << srts << std::endl;
     }
+  } else {
+    rejected23_count_++;
   }
-  rejected23_count_++;
 }
 
 
@@ -667,8 +669,9 @@ void MicrocanonicalSampler::random_three_to_two(
     if (debug_printout_) {
       std::cout << in << "->" << out << ";" << srts << std::endl;
     }
+  } else {
+    rejected32_count_++;
   }
-  rejected32_count_++;
 }
 
 
