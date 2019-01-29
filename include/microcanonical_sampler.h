@@ -1,6 +1,8 @@
 #ifndef MICROCANONICAL_SAMPLER_H
 #define MICROCANONICAL_SAMPLER_H
 
+#include <array>
+#include <map>
 #include <vector>
 
 #include "smash/fourvector.h"
@@ -67,8 +69,6 @@ class MicrocanonicalSampler {
                                 SamplerParticle &a,
                                 SamplerParticle &b,
                                 SamplerParticle &c);
-  bool quantum_numbers_match(const smash::ParticleTypePtrList& a,
-                             const QuantumNumbers& qn);
   double mu_minus_E_over_T(const SamplerParticle& p,
                            const HyperSurfacePatch& hypersurface);
   double compute_cells_factor(const SamplerParticleList& in,
@@ -83,6 +83,17 @@ class MicrocanonicalSampler {
 
   SamplerParticleList particles_;
   std::vector<smash::ParticleTypePtr> sampled_types_;
+  /** All possible combinations of 3 particle species with given quantum
+   *  numbers B, S, Q defined by the key std::array<int,3>. The key maps
+   *  to a vector of sorted triplets. The vector is sorted by the sum
+   *  of pole masses. This is to simplify the search of channels below
+   *  given sqrt (total energy).
+   */
+  std::map<std::array<int,3>,
+           std::vector<std::array<smash::ParticleTypePtr,3>>> channels3_;
+  /// Same for 2-specie combinations
+  std::map<std::array<int,3>,
+           std::vector<std::array<smash::ParticleTypePtr,2>>> channels2_;
   ThreeBodyIntegrals three_body_int_;
   int debug_printout_;
   bool quantum_statistics_;

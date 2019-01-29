@@ -30,6 +30,91 @@ MicrocanonicalSampler::MicrocanonicalSampler(
     }
   }
 
+  if (debug_printout_) {
+    std::cout << "Filling the map of channels..." << std::endl;
+  }
+  // Create lists of channels by qunatum numbers
+  const int Ntypes = sampled_types_.size();
+  for (int i1 = 0; i1 < Ntypes; ++i1) {
+    for (int i2 = 0; i2 <= i1; ++i2) {
+      std::array<smash::ParticleTypePtr, 2> y{sampled_types_[i1],
+                                              sampled_types_[i2]};
+      std::array<int,3> BSQ2{y[0]->baryon_number() + y[1]->baryon_number(),
+                             y[0]->strangeness() +   y[1]->strangeness(),
+                             y[0]->charge() +        y[1]->charge()};
+      channels2_[BSQ2].push_back(y);
+      for (int i3 = 0; i3 <= i2; ++i3) {
+        std::array<smash::ParticleTypePtr, 3> x{sampled_types_[i1],
+                                                sampled_types_[i2],
+                                                sampled_types_[i3]};
+        const int B = x[0]->baryon_number() + x[1]->baryon_number() +
+                      x[2]->baryon_number();
+        const int S = x[0]->strangeness() + x[1]->strangeness() +
+                      x[2]->strangeness();
+        const int Q = x[0]->charge() + x[1]->charge() + x[2]->charge();
+        std::array<int,3> BSQ3{B,S,Q};
+        channels3_[BSQ3].push_back(x);
+      }
+    }
+  }
+
+  // Sort lists of channels by sum of masses = threshold energy
+  for (auto& channels_BSQ : channels3_) {
+    std::sort(channels_BSQ.second.begin(), channels_BSQ.second.end(),
+              [](const std::array<smash::ParticleTypePtr, 3> &a,
+                 const std::array<smash::ParticleTypePtr, 3> &b) {
+      return a[0]->mass() + a[1]->mass() + a[2]->mass() <
+             b[0]->mass() + b[1]->mass() + b[2]->mass();
+    });
+  }
+  for (auto& channels_BSQ : channels2_) {
+    std::sort(channels_BSQ.second.begin(), channels_BSQ.second.end(),
+              [](const std::array<smash::ParticleTypePtr, 2> &a,
+                 const std::array<smash::ParticleTypePtr, 2> &b) {
+      return a[0]->mass() + a[1]->mass() < b[0]->mass() + b[1]->mass();
+    });
+  }
+
+  if (debug_printout_) {
+    std::cout << "Total numbers of 2->3 channels with given quantum numbers. "
+              << std::endl;
+    int total_channels = 0;
+    for (auto channels_BSQ : channels3_) {
+      std::array<int, 3> BSQ = channels_BSQ.first;
+      const int Nch = channels_BSQ.second.size();
+      std::cout << "B = " << BSQ[0] << ", S = " << BSQ[1] << ", Q = " << BSQ[2]
+                << ": Nch = " << Nch << std::endl;
+      /*
+      for (const auto t : channels_BSQ.second) {
+        std::cout << t[0]->name() << t[1]->name() << t[2]->name() << " " <<
+                     t[0]->mass() + t[1]->mass() + t[2]->mass() << ", ";
+      }
+      std::cout << std::endl;
+      */
+      total_channels += Nch;
+    }
+    std::cout << "------------------------------------------" << std::endl;
+    std::cout << "Total 2->3 channels: " << total_channels << std::endl;
+    std::cout << "Total numbers of 3->2 channels with given quantum numbers. "
+              << std::endl;
+    total_channels = 0;
+    for (auto channels_BSQ : channels2_) {
+      std::array<int, 3> BSQ = channels_BSQ.first;
+      const int Nch = channels_BSQ.second.size();
+      std::cout << "B = " << BSQ[0] << ", S = " << BSQ[1] << ", Q = " << BSQ[2]
+                << ": Nch = " << Nch << std::endl;
+      /*
+      for (const auto t : channels_BSQ.second) {
+        std::cout << t[0]->name() << t[1]->name() << ", ";
+      }
+      std::cout << std::endl;
+      */
+      total_channels += Nch;
+    }
+    std::cout << "------------------------------------------" << std::endl;
+    std::cout << "Total 3->2 channels: " << total_channels << std::endl;
+  }
+
   // Prepare 3-body integrals
   if (debug_printout_) {
     std::cout << "Preparing 3-body integrals..." << std::endl;
@@ -189,50 +274,37 @@ double MicrocanonicalSampler::compute_R2(double srts, double m1, double m2) {
 }
 
 double MicrocanonicalSampler::compute_sum_R3(const QuantumNumbers &cons) {
-  const int Ntypes = sampled_types_.size();
   smash::FourVector momentum_total = cons.momentum;
   const double srts = momentum_total.abs();
+  std::array<int, 3> BSQ{cons.B, cons.S, cons.Q};
   double sum_R3 = 0.0;
-  for (int i1 = 0; i1 < Ntypes; ++i1) {
-    for (int i2 = 0; i2 <= i1; ++i2) {
-      for (int i3 = 0; i3 <= i2; ++i3) {
-        if (quantum_numbers_match({sampled_types_[i1],
-                                   sampled_types_[i2],
-                                   sampled_types_[i3]}, cons)) {
-          const double tmp = three_body_int_.value(srts,
-                                sampled_types_[i1]->mass(),
-                                sampled_types_[i2]->mass(),
-                                sampled_types_[i3]->mass());
-          assert(tmp >= 0);
-          sum_R3 += tmp;
-          if (debug_printout_ >= 2) {
-            std::cout << sampled_types_[i1]->name()
-                      << sampled_types_[i2]->name()
-                      << sampled_types_[i3]->name() << " " << tmp * 1E6
-                      << " at srts = " << srts << std::endl;
-          }
-        }
-      }
+  for (const std::array<smash::ParticleTypePtr,3> &t : channels3_[BSQ]) {
+    if (t[0]->mass() + t[1]->mass() + t[2]->mass() > srts) {
+      break;
+    }
+    const double tmp = three_body_int_.value(srts,
+                       t[0]->mass(), t[1]->mass(), t[2]->mass());
+    sum_R3 += tmp;
+    if (debug_printout_ >= 2) {
+      std::cout << t[0]->name() << t[1]->name() << t[2]->name()
+                << " " << tmp * 1E6
+                << " at srts = " << srts << std::endl;
     }
   }
   return sum_R3;
 }
 
 double MicrocanonicalSampler::compute_sum_R2(const QuantumNumbers &cons) {
-  const int Ntypes = sampled_types_.size();
   smash::FourVector momentum_total = cons.momentum;
   const double srts = momentum_total.abs();
+  std::array<int, 3> BSQ{cons.B, cons.S, cons.Q};
   double sum_R2 = 0.0;
-  for (int i1 = 0; i1 < Ntypes; ++i1) {
-    for (int i2 = 0; i2 <= i1; ++i2) {
-      if (quantum_numbers_match({sampled_types_[i1],
-                                 sampled_types_[i2]}, cons)) {
-        const double m_i1 = sampled_types_[i1]->mass(),
-                     m_i2 = sampled_types_[i2]->mass();
-        const double R2 = compute_R2(srts, m_i1, m_i2);
-        sum_R2 += R2;
-      }
+  for (const std::array<smash::ParticleTypePtr, 2> &t : channels2_[BSQ]) {
+    if (t[0]->mass() + t[1]->mass() > srts) {
+      break;
     }
+    const double R2 = compute_R2(srts, t[0]->mass() , t[1]->mass());
+    sum_R2 += R2;
   }
   return sum_R2;
 }
@@ -273,18 +345,6 @@ void MicrocanonicalSampler::sample_3body_phase_space(double srts,
   }
   // assert(std::abs((a.momentum + b.momentum + c.momentum
   //                 - smash::FourVector(srts, 0, 0, 0)).abs()) < 1.e-12);
-}
-
-bool MicrocanonicalSampler::quantum_numbers_match(
-                            const smash::ParticleTypePtrList& a,
-                            const QuantumNumbers& qn) {
-  int B = 0, S = 0, Q = 0;
-  for (const auto ptype : a) {
-    B += ptype->baryon_number();
-    S += ptype->strangeness();
-    Q += ptype->charge();
-  }
-  return (B == qn.B) && (S == qn.S) && (Q == qn.Q);
 }
 
 double MicrocanonicalSampler::mu_minus_E_over_T(const SamplerParticle& p,
@@ -337,11 +397,10 @@ double MicrocanonicalSampler::compute_spin_factor(
 
 void MicrocanonicalSampler::random_two_to_three(
                             const HyperSurfacePatch& hypersurface) {
-  const size_t Ntypes = sampled_types_.size();
   const size_t Npart = particles_.size();
   const size_t Ncells = hypersurface.Ncells();
   // Choose 2 random particles
-  size_t in_index1, in_index2, i1, i2, i3;
+  size_t in_index1, in_index2;
   in_index1 = smash::random::uniform_int<size_t>(0, Npart - 1);
   do {
     in_index2 = smash::random::uniform_int<size_t>(0, Npart - 1);
@@ -364,47 +423,46 @@ void MicrocanonicalSampler::random_two_to_three(
   }
 
   // Choose channel
-  const double r = smash::random::uniform(0.0, sum_R3);
-  double partial_sum_R3 = 0.0;
-  bool channel_found23 = false;
-  for (i1 = 0; i1 < Ntypes && !channel_found23; i1++) {
-    for (i2 = 0; i2 <= i1 && !channel_found23; i2++) {
-      for (i3 = 0; i3 <= i2 && !channel_found23; i3++) {
-        if (quantum_numbers_match({sampled_types_[i1],
-                                  sampled_types_[i2],
-                                  sampled_types_[i3]}, cons)) {
-          const double tmp = three_body_int_.value(srts,
-                                sampled_types_[i1]->mass(),
-                                sampled_types_[i2]->mass(),
-                                sampled_types_[i3]->mass());
-          assert(tmp >= 0.0);
-          partial_sum_R3 += tmp;
-          if (partial_sum_R3 >= r) {
-            channel_found23 = true;
-          }
-          if (partial_sum_R3 > sum_R3) {
-            throw std::runtime_error("2->3 partial sum exceeded total!");
-          }
-        }
-      }
-    }
-  }
-  i1--;
-  i2--;
-  i3--;
-  if (!channel_found23) {
-    return;
-  }
   SamplerParticleList out;
   out.clear();
   out.resize(3);
   std::array<size_t,3> cell =
-    {smash::random::uniform_int<size_t>(0, Ncells - 1),
-     smash::random::uniform_int<size_t>(0, Ncells - 1),
-     smash::random::uniform_int<size_t>(0, Ncells - 1)};
-  out[0] = {smash::FourVector(), sampled_types_[i1], cell[0]};
-  out[1] = {smash::FourVector(), sampled_types_[i2], cell[1]};
-  out[2] = {smash::FourVector(), sampled_types_[i3], cell[2]};
+      {smash::random::uniform_int<size_t>(0, Ncells - 1),
+       smash::random::uniform_int<size_t>(0, Ncells - 1),
+       smash::random::uniform_int<size_t>(0, Ncells - 1)};
+  const double r = smash::random::uniform(0.0, sum_R3);
+  double partial_sum_R3 = 0.0;
+  bool channel_found23 = false;
+  std::array<int, 3> BSQ{cons.B, cons.S, cons.Q};
+  if (channels3_.find(BSQ) != channels3_.end()) {
+    for (const std::array<smash::ParticleTypePtr,3> &t : channels3_[BSQ]) {
+      if (t[0]->mass() + t[1]->mass() + t[2]->mass() > srts) {
+        break;
+      }
+      const double tmp = three_body_int_.value(srts,
+                         t[0]->mass(), t[1]->mass(), t[2]->mass());
+      assert(tmp >= 0.0);
+      partial_sum_R3 += tmp;
+      //std::cout << t[0]->name() << t[1]->name() << t[2]->name() << " "
+      //          << partial_sum_R3 << "/" << sum_R3 << ", r = " << r << std::endl;
+
+      if (partial_sum_R3 >= r) {
+        channel_found23 = true;
+        out[0] = {smash::FourVector(), t[0], cell[0]};
+        out[1] = {smash::FourVector(), t[1], cell[1]};
+        out[2] = {smash::FourVector(), t[2], cell[2]};
+        break;
+      }
+      if (partial_sum_R3 > sum_R3) {
+        std::cout << "Discrepancy: " << sum_R3 - partial_sum_R3 << std::endl;
+        throw std::runtime_error("2->3 partial sum exceeded total!");
+      }
+    }
+  }
+  if (!channel_found23) {
+    return;
+  }
+
 
   sample_3body_phase_space(srts, out[0], out[1], out[2]);
   for (SamplerParticle& part : out) {
@@ -472,14 +530,13 @@ void MicrocanonicalSampler::random_two_to_three(
 
 void MicrocanonicalSampler::random_three_to_two(
                             const HyperSurfacePatch& hypersurface) {
-  const size_t Ntypes = sampled_types_.size();
   const size_t Npart = particles_.size();
   const size_t Ncells = hypersurface.Ncells();
   if (Npart < 3) {
     return;
   }
   // Choose 3 random particles
-  size_t in_index1, in_index2, in_index3, i1, i2;
+  size_t in_index1, in_index2, in_index3;
   in_index1 = smash::random::uniform_int<size_t>(0, Npart - 1);
   do {
     in_index2 = smash::random::uniform_int<size_t>(0, Npart - 1);
@@ -507,43 +564,46 @@ void MicrocanonicalSampler::random_three_to_two(
 
 
   // Choose channel
-  const double r = smash::random::uniform(0.0, sum_R2);
-  double partial_sum_R2 = 0.0;
-  bool channel_found32 = false;
-  for (i1 = 0; (i1 < Ntypes) && (!channel_found32); i1++) {
-    for (i2 = 0; (i2 <= i1) && (!channel_found32); i2++) {
-     if (quantum_numbers_match({sampled_types_[i1],
-                                 sampled_types_[i2]}, cons)) {
-        const double tmp = compute_R2(srts,
-                            sampled_types_[i1]->mass(),
-                            sampled_types_[i2]->mass());
-        partial_sum_R2 += tmp;
-        if (partial_sum_R2 >= r) {
-          channel_found32 = true;
-        }
-        if (partial_sum_R2 > sum_R2) {
-          std::cout << partial_sum_R2 << " " << sum_R2 << std::endl;
-          throw std::runtime_error("3->2, partial sum exceeded total!");
-        }
-      }
-    }
-  }
-  i1--;
-  i2--;
-  if (!channel_found32) {
-    if (debug_printout_ == 2) {
-      std::cout << "No channel found, R2_sum = " << sum_R2 << std::endl;
-    }
-    return;
-  }
   SamplerParticleList out;
   out.clear();
   out.resize(2);
   std::array<size_t,2> cell =
     {smash::random::uniform_int<size_t>(0, Ncells - 1),
      smash::random::uniform_int<size_t>(0, Ncells - 1)};
-  out[0] = {smash::FourVector(), sampled_types_[i1], cell[0]};
-  out[1] = {smash::FourVector(), sampled_types_[i2], cell[1]};
+
+  const double r = smash::random::uniform(0.0, sum_R2);
+  double partial_sum_R2 = 0.0;
+  bool channel_found32 = false;
+  std::array<int, 3> BSQ{cons.B, cons.S, cons.Q};
+  if (channels2_.find(BSQ) != channels2_.end()) {
+    for (const std::array<smash::ParticleTypePtr, 2> &t : channels2_[BSQ]) {
+      if (t[0]->mass() + t[1]->mass() > srts) {
+        break;
+      }
+      const double tmp = compute_R2(srts, t[0]->mass() , t[1]->mass());
+      partial_sum_R2 += tmp;
+      // std::cout << t[0]->name() << t[1]->name() << " "
+      //          << partial_sum_R2 << "/" << sum_R2 << ", r = " << r << std::endl;
+
+      if (partial_sum_R2 >= r) {
+        channel_found32 = true;
+        out[0] = {smash::FourVector(), t[0], cell[0]};
+        out[1] = {smash::FourVector(), t[1], cell[1]};
+        break;
+      }
+      if (partial_sum_R2 > sum_R2) {
+        std::cout << partial_sum_R2 << " " << sum_R2 << std::endl;
+        throw std::runtime_error("3->2, partial sum exceeded total!");
+      }
+    }
+  }
+  if (!channel_found32) {
+    if (debug_printout_ == 2) {
+      std::cout << "No channel found, R2_sum = " << sum_R2 << std::endl;
+    }
+    return;
+  }
+
 
   const double m1 = out[0].type->mass(),
                m2 = out[1].type->mass();
