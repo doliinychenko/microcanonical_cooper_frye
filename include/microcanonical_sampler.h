@@ -57,6 +57,7 @@ class MicrocanonicalSampler {
   void set_quantum_statistics(bool qs) { quantum_statistics_ = qs; }
   /// Gives read-only access to particles
   const SamplerParticleList& particles() const { return particles_; }
+  void print_rejection_stats();
  private:
   /**
    */
@@ -97,6 +98,8 @@ class MicrocanonicalSampler {
   ThreeBodyIntegrals three_body_int_;
   int debug_printout_;
   bool quantum_statistics_;
+  int accepted23_count_ = 0, accepted32_count_ = 0,
+      rejected23_count_ = 0, rejected32_count_ = 0;
 };
 
 /// Convenient printout of the SamplerParticleList

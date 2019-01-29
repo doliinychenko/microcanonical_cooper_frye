@@ -520,11 +520,12 @@ void MicrocanonicalSampler::random_two_to_three(
     particles_[in_index1] = out[0];
     particles_[in_index2] = out[1];
     particles_.push_back(out[2]);
-
+    accepted23_count_++;
     if (debug_printout_ == 1) {
       std::cout << in << "->" << out << ";" << srts << std::endl;
     }
   }
+  rejected23_count_++;
 }
 
 
@@ -662,10 +663,12 @@ void MicrocanonicalSampler::random_three_to_two(
     particles_[in_index1] = out[0];
     particles_[in_index2] = out[1];
     particles_.erase(particles_.begin() + in_index3);
+    accepted32_count_++;
     if (debug_printout_) {
       std::cout << in << "->" << out << ";" << srts << std::endl;
     }
   }
+  rejected32_count_++;
 }
 
 
@@ -742,6 +745,13 @@ void MicrocanonicalSampler::renormalize_momenta(
   QuantumNumbers conserved_final = QuantumNumbers(particles_);
   std::cout << "Obtained total momentum: "
             << conserved_final.momentum << std::endl;
+}
+
+void MicrocanonicalSampler::print_rejection_stats() {
+  std::cout << "2->3 acceptance: " << accepted23_count_ << "/"
+            << accepted23_count_ + rejected23_count_ << std::endl;
+  std::cout << "3->2 acceptance: " << accepted32_count_ << "/"
+            << accepted32_count_ + rejected32_count_ << std::endl;
 }
 
 std::ostream &operator<<(std::ostream &out,

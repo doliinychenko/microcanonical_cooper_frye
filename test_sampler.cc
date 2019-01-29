@@ -98,6 +98,8 @@ int main() {
     sampler.one_markov_chain_step(hyper);
   }
   std::cout << "Finished warming up." << std::endl;
+  std::cout << sampler.particles().size() << " particles" << std::endl;
+  sampler.print_rejection_stats();
 
   ParticleTypePtrList sampled_types;
   for (const ParticleType &ptype : ParticleType::list_all()) {
@@ -127,5 +129,6 @@ int main() {
   assert(cons.B == hyper.B());
   assert(cons.S == hyper.S());
   assert(cons.Q == hyper.Q());
+  sampler.print_rejection_stats();
   // std::cout << "Final momentum diff: " << cons.momentum - hyper.pmu() << std::endl;
 }
