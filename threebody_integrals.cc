@@ -64,7 +64,7 @@ int ThreeBodyIntegrals::gslfit_df(const gsl_vector *param, void *data,
                  t2 = 1.0 + a[3] * x,
                  u1 = std::pow(t1, -a[2]),
                  u2 = std::pow(t2, -a[4]);
-    gsl_matrix_set(Jac, i, 0, u1 - u2); 
+    gsl_matrix_set(Jac, i, 0, u1 - u2);
     gsl_matrix_set(Jac, i, 1, -a[0] * a[2] * x * u1 / t1);
     gsl_matrix_set(Jac, i, 2, -a[0] * std::log(t1) * u1);
     gsl_matrix_set(Jac, i, 3,  a[0] * a[4] * x * u2 / t2);
@@ -93,11 +93,11 @@ void ThreeBodyIntegrals::print_gsl_fitter_state(size_t iter,
   printf("iter: %3lu par = %15.8f %15.8f %15.8f %15.8f %15.8f"
          " |f(x)| = %g\n",
          iter,
-         gsl_vector_get(s->x, 0), 
+         gsl_vector_get(s->x, 0),
          gsl_vector_get(s->x, 1),
          gsl_vector_get(s->x, 2),
          gsl_vector_get(s->x, 3),
-         gsl_vector_get(s->x, 4), 
+         gsl_vector_get(s->x, 4),
          gsl_blas_dnrm2(s->f));
 }
 
@@ -131,7 +131,7 @@ void ThreeBodyIntegrals::add(double m1, double m2, double m3) {
 
   int status;
   size_t iter = 0;
-  
+
   // print_gsl_fitter_state(iter, gsl_fitter_);
 
   do {
@@ -173,8 +173,8 @@ void ThreeBodyIntegrals::add(double m1, double m2, double m3) {
     }
     //std::cout << x.first << " " << x.second << " " << parametrized
     //          << " rel. diff. = " << (x.second - parametrized) / parametrized
-    //          << std::endl; 
-   
+    //          << std::endl;
+
   }
   // std::cout << "Max. rel. diff. = " << max_rel_diff << std::endl;
   // std::cout << "x of Max. rel. diff. = " << x_of_max << std::endl;
