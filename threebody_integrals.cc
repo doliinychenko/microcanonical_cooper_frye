@@ -106,8 +106,8 @@ void ThreeBodyIntegrals::add(double m1, double m2, double m3) {
   std::sort(masses.begin(), masses.end());
   auto it = saved_integrals_.find(masses);
   if (it != saved_integrals_.end()) {
-    std::cout << "Masses " << m1 << " " << m2 << " " << m3
-              << " are already in the map." << std::endl;
+    // std::cout << "Masses " << m1 << " " << m2 << " " << m3
+    //          << " are already in the map." << std::endl;
     return;  // no need to recalculate
   }
 
@@ -241,6 +241,48 @@ double ThreeBodyIntegrals::value(double srts,
   const double g = integral_fit_function(x, retrieve(m1, m2, m3));
   return (g + 1.0) * ( 1.0 + (a-1)/(1+x) ) * x*x /
          (256.0 * M_PI * M_PI * M_PI);
+}
+
+void ThreeBodyIntegrals::save_to_file(std::string filename) {
+  std::cout << "Saving tabulated 3-body integrals: " << filename << std::endl;
+  std::ofstream output_file;
+  output_file.open(filename);
+  for (const auto& integral : saved_integrals_) {
+    output_file << std::fixed << std::setprecision(16);
+    ThreeBodyIntegrals::masses_3body m = integral.first;
+    ThreeBodyIntegrals::integral_parametrization p = integral.second;
+    output_file << m[0] << " " << m[1] << " " << m[2] << " ";
+    for (size_t i = 0; i < n_fit_param; i++) {
+      output_file << p.p[i] << " ";
+    }
+    output_file << p.max_rel_diff << std::endl;
+  }
+}
+
+void ThreeBodyIntegrals::get_from_file(std::string filename) {
+  std::cout << "Reading 3-body integrals from file " << filename << std::endl;
+  std::ifstream input_file;
+  input_file.open(filename, std::ios::in);
+  std::string line;
+  while (std::getline(input_file, line)) {
+    std::istringstream iss(line);
+    double m1, m2, m3, p0, p1, p2, p3, p4, perr;
+    if (!(iss >> m1 >> m2 >> m3 >> p0 >> p1 >> p2 >> p3 >> p4 >> perr)) {
+      std::cout << "Suspicious line: " << line << std::endl;
+      break;
+    }
+    ThreeBodyIntegrals::masses_3body m{m1,m2,m3};
+    std::sort(m.begin(), m.end());
+    ThreeBodyIntegrals::integral_parametrization p{{p0, p1, p2, p3, p4}, perr};
+    // If it is already in the map, prefer freshly computed integrals to
+    // the saved ones.
+    auto it = saved_integrals_.find(m);
+    if (it == saved_integrals_.end()) {
+      saved_integrals_[m] = p;
+    }
+  }
+  std::cout << "Total integrals in the map:  " << saved_integrals_.size()
+            << std::endl;
 }
 
 std::ostream &operator<<(std::ostream &out,

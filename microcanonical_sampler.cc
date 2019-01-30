@@ -1,3 +1,4 @@
+#include <fstream>
 #include <vector>
 
 #include "microcanonical_sampler.h"
@@ -33,7 +34,7 @@ MicrocanonicalSampler::MicrocanonicalSampler(
   if (debug_printout_) {
     std::cout << "Filling the map of channels..." << std::endl;
   }
-  // Create lists of channels by qunatum numbers
+  // Create lists of channels by quantum numbers
   const int Ntypes = sampled_types_.size();
   for (int i1 = 0; i1 < Ntypes; ++i1) {
     for (int i2 = 0; i2 <= i1; ++i2) {
@@ -127,17 +128,29 @@ MicrocanonicalSampler::MicrocanonicalSampler(
   unique_masses.erase(std::unique(unique_masses.begin(), unique_masses.end()),
                       unique_masses.end() );
   const size_t N_masses = unique_masses.size();
-  if (debug_printout_) {
-    std::cout << N_masses << " different masses in total" << std::endl;
+  std::cout << N_masses << " different masses in total" << std::endl;
+  const std::string save_integrals_file("../saved_3body_integrals.dat");
+  std::ifstream f(save_integrals_file);
+  if (f.good()) {
+    three_body_int_.get_from_file(save_integrals_file);
   }
-  for (size_t i = 0; i < N_masses; i++) {
-    for (size_t j = 0; j <= i; j++) {
-      for (size_t k = 0; k <= j; k++) {
-        three_body_int_.add(unique_masses[i],
-                            unique_masses[j],
-                            unique_masses[k]);
+  const size_t expected_integrals_number =
+      N_masses * (N_masses + 1) * (N_masses + 2) / 6;
+  if (three_body_int_.number_of_integrals() < expected_integrals_number) {
+    std::cout << "Read " << three_body_int_.number_of_integrals()
+              << " integrals from " << save_integrals_file << ", but need "
+              << expected_integrals_number << " in total -> computing them"
+              << " and adding to file" << std::endl;
+    for (size_t i = 0; i < N_masses; i++) {
+      for (size_t j = 0; j <= i; j++) {
+        for (size_t k = 0; k <= j; k++) {
+          three_body_int_.add(unique_masses[i],
+                              unique_masses[j],
+                              unique_masses[k]);
+        }
       }
     }
+    three_body_int_.save_to_file(save_integrals_file);
   }
 }
 

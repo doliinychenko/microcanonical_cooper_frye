@@ -28,7 +28,9 @@ class ThreeBodyIntegrals {
   void add(double m1, double m2, double m3);
   integral_parametrization retrieve(double m1, double m2, double m3);
   double value(double x, double m1, double m2, double m3);
-
+  void save_to_file(std::string filename);
+  void get_from_file(std::string filename);
+  size_t number_of_integrals() const { return saved_integrals_.size(); }
  private:
   static double integral_fit_function(double x, const integral_parametrization &a);
   void integral_tabulate(double m1, double m2, double m3,
