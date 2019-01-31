@@ -93,6 +93,10 @@ class MicrocanonicalSampler {
   /// Same for 2-specie combinations
   std::map<std::array<int,3>,
            std::vector<std::array<smash::ParticleTypePtr,2>>> channels2_;
+  /** Pre-computed sum of the masses for 3-body channels and t2-body channels
+   *  in the same order that in channels3_ and channels2_
+   */
+  std::map<std::array<int,3>, std::vector<double>> thresholds3_, thresholds2_;
   ThreeBodyIntegrals three_body_int_;
   int debug_printout_;
   bool quantum_statistics_;

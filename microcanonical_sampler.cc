@@ -116,6 +116,23 @@ MicrocanonicalSampler::MicrocanonicalSampler(
     std::cout << "Total 3->2 channels: " << total_channels << std::endl;
   }
 
+  // Prepare threshold arrays
+  for (auto channels_BSQ : channels3_) {
+    std::array<int, 3> BSQ = channels_BSQ.first;
+    thresholds3_[BSQ].reserve(channels_BSQ.second.size());
+    for (const auto t : channels_BSQ.second) {
+      thresholds3_[BSQ].push_back(t[0]->mass() + t[1]->mass() + t[2]->mass());
+    }
+  }
+  for (auto channels_BSQ : channels2_) {
+    std::array<int, 3> BSQ = channels_BSQ.first;
+    thresholds2_[BSQ].reserve(channels_BSQ.second.size());
+    for (const auto t : channels_BSQ.second) {
+      thresholds2_[BSQ].push_back(t[0]->mass() + t[1]->mass());
+    }
+  }
+
+
   // Prepare 3-body integrals
   if (debug_printout_) {
     std::cout << "Preparing 3-body integrals..." << std::endl;
@@ -373,30 +390,18 @@ double MicrocanonicalSampler::compute_spin_factor(
 
 size_t MicrocanonicalSampler::N_available_channels3(std::array<int, 3>& BSQ,
                                                     double srts) {
-  size_t N_available_channels = 0;
-  if (channels3_.find(BSQ) != channels3_.end()) {
-    for (const std::array<smash::ParticleTypePtr,3> &t : channels3_[BSQ]) {
-      if (t[0]->mass() + t[1]->mass() + t[2]->mass() > srts) {
-        break;
-      }
-      N_available_channels++;
-    }
-  }
-  return N_available_channels;
+  return (thresholds3_.find(BSQ) == thresholds3_.end()) ? 0 :
+    std::upper_bound(thresholds3_[BSQ].begin(),
+                     thresholds3_[BSQ].end(), srts) -
+    thresholds3_[BSQ].begin();
 }
 
 size_t MicrocanonicalSampler::N_available_channels2(std::array<int, 3>& BSQ,
                                                     double srts) {
-  size_t N_available_channels = 0;
-  if (channels2_.find(BSQ) != channels2_.end()) {
-    for (const std::array<smash::ParticleTypePtr,2> &t : channels2_[BSQ]) {
-      if (t[0]->mass() + t[1]->mass() > srts) {
-        break;
-      }
-      N_available_channels++;
-    }
-  }
-  return N_available_channels;
+  return (thresholds2_.find(BSQ) == thresholds2_.end()) ? 0 :
+     std::upper_bound(thresholds2_[BSQ].begin(),
+                      thresholds2_[BSQ].end(), srts) -
+     thresholds2_[BSQ].begin();
 }
 
 
