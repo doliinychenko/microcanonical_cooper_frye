@@ -37,8 +37,9 @@ Sampled particles, characterized by
 ## Current state
 
 The project is currently at the research and development stage. It
-is supposed to work for an arbitrary hypersurface, but not yet properly
-tested, documented and cleaned up.
+is tested in a number of simple cases and already optimized to run fast enough
+for practical usage. The code still needs more documentation and clean up,
+but this is postponed until the paper is written.
 
 The sampled local distribution is limited to Boltzmann, but it is extendable
 to viscous-corrected distribution and quantum statistics.
