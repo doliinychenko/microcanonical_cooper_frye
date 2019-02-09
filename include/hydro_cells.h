@@ -10,7 +10,13 @@
 class HyperSurfacePatch {
 
 public:
+  enum class InputFormat {
+    DimaNaiveFormat = 0,
+    MUSIC_ASCII_3plus1D = 1
+  };
+
   struct hydro_cell {
+    smash::FourVector r;
     smash::FourVector dsigma;
     smash::FourVector u;
     double T;
@@ -38,6 +44,7 @@ public:
    */
   HyperSurfacePatch(
       const std::string &input_file,
+      InputFormat read_in_format,
       const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
       bool quantum_statistics);
   /// Cannot be copied
@@ -55,6 +62,8 @@ public:
   size_t Ncells() const { return cells_.size(); }
 
 private:
+  void read_from_MUSIC_file(const std::string &filename);
+
   /// Read out cells from file
   void read_from_file(const std::string &filename);
 
@@ -66,6 +75,7 @@ private:
   smash::FourVector pmu_tot_;
   double B_tot_nonint_, S_tot_nonint_, Q_tot_nonint_;
   int B_tot_, S_tot_, Q_tot_;
+  InputFormat read_in_format_;
   bool quantum_statistics_;
   /// Maximal number of terms in the series for quantum formulas
   const unsigned int quantum_series_max_terms_;

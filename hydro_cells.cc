@@ -8,8 +8,10 @@
 
 HyperSurfacePatch::HyperSurfacePatch(
     const std::string &input_file,
+    InputFormat read_in_format,
     const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
     bool quantum_statistics) :
+    read_in_format_(read_in_format),
     quantum_statistics_(quantum_statistics),
     quantum_series_max_terms_(100),
     quantum_series_rel_precision_(1e-12) {
@@ -20,11 +22,77 @@ HyperSurfacePatch::HyperSurfacePatch(
   }
 
   cells_.clear();
-  read_from_file(input_file);
+  switch (read_in_format_) {
+    case InputFormat::MUSIC_ASCII_3plus1D:
+         read_from_MUSIC_file(input_file); break;
+    case InputFormat::DimaNaiveFormat:
+         read_from_file(input_file); break;
+    default:
+         throw std::runtime_error("Unknown input file format");
+  }
   compute_totals();
 }
 
+void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
+  std::ifstream infile(filename);
+  if (!infile.good()) {
+    throw std::runtime_error("Could not open file");
+  }
+  std::string line;
+  size_t line_counter = 0;
+  while (std::getline(infile, line)) {
+    line_counter++;
+    std::istringstream iss(line);
+    double ds0, ds1, ds2, ds3, u0, u1, u2, u3, En, T, muB, muS, muQ,
+           tau, x, y, eta;
+    // clang-format off
+    if (!(iss >> tau >> x >> y >> eta
+              >> ds0 >> ds1 >> ds2 >> ds3
+              >> u0 >> u1 >> u2 >> u3
+              >> En >> T >> muB)) {
+      break;
+    }
+    // clang-format on
+    smash::FourVector u_Milne(u0, u1, u2, u3);
+    assert(T >= 0.0);
+    smash::FourVector u_Milne_test(u0, u1, u2, u3 * tau);
+    if (std::abs(u_Milne_test.sqr() - 1.0) > 1.e-2) {
+      std::cout << "Warning at reading from MUSIC output (line "
+                << line_counter << "): "
+                << "u_Milne (u_eta multiplied by tau) = " << u_Milne_test
+                << ", u^2 == 1 is not fulfilled with error "
+                << std::abs(u_Milne_test.sqr() - 1.0) << std::endl;
+    }
+    En  *= smash::hbarc;
+    T   *= smash::hbarc;
+    muB *= smash::hbarc;
+    muS = 0.0;
+    muQ = 0.0;
+    // Transforming from Milne to Cartesian
+    const double ch_eta = std::cosh(eta);
+    const double sh_eta = std::sinh(eta);
+    const double t = tau * ch_eta,
+                 z = tau * sh_eta;
+    smash::FourVector u(u0 * ch_eta + u3 * tau * sh_eta,
+                        u1, u2,
+                        u0 * sh_eta + u3 * tau * ch_eta);
+    smash::FourVector ds(tau * ch_eta * ds0 - ds3 * sh_eta,
+                         tau * ds1, tau * ds2,
+                         tau * sh_eta * ds0 - ds3 * ch_eta);
+    if (ds.sqr() < 0) {
+      std::cout << "dsigma^2 < 0, dsigma = " << ds
+                << ", T = " << T
+                << ", muB = " << muB
+                << ", cell " << line_counter << std::endl;
+    }
+    cells_.push_back({{t, x, y, z}, ds, u, T, muB, muS, muQ});
+  }
+  std::cout << cells_.size() << " cells read from the file "
+            << filename << std::endl;
+}
+
 void HyperSurfacePatch::read_from_file(const std::string &filename) {
+  cells_.clear();
   std::ifstream infile(filename);
   if (!infile.good()) {
     throw std::runtime_error("Could not open file");
@@ -45,7 +113,7 @@ void HyperSurfacePatch::read_from_file(const std::string &filename) {
     smash::FourVector u(1.0, v1, v2, v3);
     u *= gamma;
     assert(std::abs(u.abs() - 1.0) < 1.e-15);
-    cells_.push_back({{ds0, ds1, ds2, ds3}, u, T, muB, muS, muQ});
+    cells_.push_back({{0, 0, 0, 0}, {ds0, ds1, ds2, ds3}, u, T, muB, muS, muQ});
   }
 }
 
