@@ -7,8 +7,11 @@
 
 #include "threebody_integrals.h"
 
+#include <gsl/gsl_sf_ellint.h>
+
 #include "smash/integrate.h"
 #include "smash/kinematics.h"
+#include "smash/pow.h"
 
 ThreeBodyIntegrals::ThreeBodyIntegrals() {
   // lmsder, lmder, lmniel
@@ -283,6 +286,37 @@ void ThreeBodyIntegrals::get_from_file(std::string filename) {
   }
   std::cout << "Total integrals in the map:  " << saved_integrals_.size()
             << std::endl;
+}
+
+double ThreeBodyIntegrals::analytical_value(double srts, double m1,
+                                          double m2, double m3) {
+  if (srts < m1 + m2 + m3) {
+    return 0.0;
+  }
+  const double x1 = (m1 - m2) * (m1 - m2),
+               x2 = (m1 + m2) * (m1 + m2),
+               x3 = (srts - m3) * (srts - m3),
+               x4 = (srts + m3) * (srts + m3);
+  const double qmm = x3 - x1,
+               qmp = x3 - x2,
+               qpm = x4 - x1,
+               qpp = x4 - x2;
+  const double kappa = std::sqrt(qpm * qmp / (qpp * qmm));
+  const double tmp = std::sqrt(qmm*qpp);
+  const double c1 = 4.0 * m1 * m2 * std::sqrt(qmm/qpp) *
+                    (x4 - m3 * srts + m1 * m2);
+  const double c2 = 0.5 * (m1 * m1 + m2 * m2 + m3 * m3 + srts * srts) * tmp;
+  const double c3 = 8 * m1 * m2 / tmp *
+                    ((m1 * m1 + m2 * m2) * (m3 * m3 + srts * srts) -
+                     2 * m1 * m1 * m2 * m2 - 2 * m3 * m3 * srts * srts);
+  const double c4 = 8 * m1 * m2 / tmp *
+                    smash::pow_int(srts * srts - m3 * m3, 2);
+  const double precision = 1.e-6;
+  const double res = c1 * gsl_sf_ellint_Kcomp(kappa, precision) +
+                     c2 * gsl_sf_ellint_Ecomp(kappa, precision) +
+                     c3 * gsl_sf_ellint_Pcomp(kappa, - qmp/qmm, precision) +
+                     c4 * gsl_sf_ellint_Pcomp(kappa, - x1 * qmp / (x2 * qmm), precision);
+  return res / (128.0 * M_PI * M_PI * M_PI * srts * srts);
 }
 
 std::ostream &operator<<(std::ostream &out,
