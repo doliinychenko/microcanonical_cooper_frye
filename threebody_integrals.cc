@@ -309,7 +309,7 @@ double ThreeBodyIntegrals::analytical_value(double srts, double m1,
   const double c3 = 8 * m1 * m2 / tmp *
                     ((m1 * m1 + m2 * m2) * (m3 * m3 + srts * srts) -
                      2 * m1 * m1 * m2 * m2 - 2 * m3 * m3 * srts * srts);
-  const double c4 = 8 * m1 * m2 / tmp *
+  const double c4 = - 8 * m1 * m2 / tmp *
                     smash::pow_int(srts * srts - m3 * m3, 2);
   const double precision = 1.e-6;
   const double res = c1 * gsl_sf_ellint_Kcomp(kappa, precision) +

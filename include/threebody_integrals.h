@@ -32,8 +32,8 @@ class ThreeBodyIntegrals {
   void get_from_file(std::string filename);
   size_t number_of_integrals() const { return saved_integrals_.size(); }
   /* Analytical evaluation based on [hep-ph/9406404] */
-  double analytical_value(double srts, double m1,
-                          double m2, double m3);
+  static double analytical_value(double srts, double m1,
+                                 double m2, double m3);
  private:
   static double integral_fit_function(double x, const integral_parametrization &a);
   void integral_tabulate(double m1, double m2, double m3,
