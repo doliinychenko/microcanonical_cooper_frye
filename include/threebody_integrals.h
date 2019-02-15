@@ -31,7 +31,15 @@ class ThreeBodyIntegrals {
   void save_to_file(std::string filename);
   void get_from_file(std::string filename);
   size_t number_of_integrals() const { return saved_integrals_.size(); }
-  /* Analytical evaluation based on [hep-ph/9406404] */
+  /* I have found rather late, that the 3-body phase space integrals, that are
+   * tabulated and parametrized in this class actually have analytical
+   * expression, which uses elliptic integrals. The expression is given
+   * in Eqs. (54-58) of [hep-ph/9406404]. I have checked that the
+   * coincidence with the values computed here numerically coincide with
+   * this analytical formula with relative precision better than 10^-3.
+   * After the integral is parametrized, computing analytical expression
+   * turns out to be around 2.5 times slower than accessing the
+   * parametrization. */
   static double analytical_value(double srts, double m1,
                                  double m2, double m3);
  private:
