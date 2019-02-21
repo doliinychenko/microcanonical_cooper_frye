@@ -10,6 +10,7 @@
 #include "gsl/gsl_sf_gamma.h"
 
 #include "threebody_integrals.h"
+#include "kmeans_clustering.h"
 #include "microcanonical_sampler.h"
 #include "hydro_cells.h"
 #include "main.h"
@@ -38,7 +39,8 @@ void initialize_random_number_generator() {
 }
 
 void load_smash_particles() {
-  std::string smash_dir(std::getenv("SMASH_DIR"));
+  std::string smash_dir("/home/dima/Work/SMASH/smash-devel/");
+  // smash_dir = std::getenv("SMASH_DIR");
   if (smash_dir == "") {
     throw std::runtime_error("Failed to load SMASH particle types."
                              " SMASH_DIR is not set.");
@@ -76,15 +78,63 @@ int type_count(const MicrocanonicalSampler::SamplerParticleList &particles,
 }
 
 bool is_sampled_type(const smash::ParticleTypePtr t) {
-  return t->is_hadron() && t->mass() < 1.0;
+  return t->is_hadron() && t->mass() < 2.5;
 }
 
 int main() {
   initialize_random_number_generator();
   load_smash_particles();
+  std::vector<HyperSurfacePatch::hydro_cell>cells;
+  for (int i = 0; i < 100000; i++) {
+    smash::Angles phitheta;
+    phitheta.distribute_isotropically();
+    const smash::ThreeVector v = smash::random::canonical() *
+                                 phitheta.threevec();
+    const double gamma = 1.0 / std::sqrt(1.0 - v.sqr());
+    const smash::FourVector u(gamma, gamma * v);
+    cells.push_back({smash::FourVector(),
+                     smash::FourVector(),
+                     u, 0.0, 0.0, 0.0, 0.0});
+  }
+  std::vector<size_t> assignments;
+  assignments.resize(cells.size());
+  k_means(cells, 10, 50, assignments);
+  for (size_t i = 0; i < cells.size(); i++) {
+    std::cout << cells[i].u.velocity() << " " << assignments[i] << std::endl;
+  }
+
+  std::array<int, 20> patch_counter{};
+  for (size_t i = 0; i < cells.size(); i++) {
+    patch_counter[assignments[i]]++;
+  }
+  for (size_t i = 0; i < 20; i++) {
+    std::cout << patch_counter[i] << " ";
+  }
+  std::cout << std::endl;
+
+
+  ThreeBodyIntegrals test_integrals;
+  test_integrals.add(1.2, 1.3, 1.4);
+  test_integrals.add(0.2, 0.3, 0.4);
+  std::cout << "Numerical integral values: "
+            << test_integrals.value(5.0, 1.2, 1.3, 1.4)*1E8 << " "
+            << test_integrals.value(1.0, 0.2, 0.3, 0.4)*1E8 << std::endl;
+  std::cout << "Analytical integral values: "
+            << ThreeBodyIntegrals::analytical_value(5.0, 1.2, 1.3, 1.4)*1E8 << " "
+            << ThreeBodyIntegrals::analytical_value(1.0, 0.2, 0.3, 0.4)*1E8 << std::endl;
+
   constexpr bool quantum_statistics = false;
 
-  HyperSurfacePatch hyper("../hydro_cells.dat", is_sampled_type,
+  // "../hydro_cells.dat" ../hyper_from_MUSIC/surface_eps_0.18_0.dat
+  const std::string hypersurface_input_file("../hydro_cells.dat");
+  // HyperSurfacePatch::InputFormat::DimaNaiveFormat
+  // HyperSurfacePatch::InputFormat::MUSIC_ASCII_3plus1D;
+
+  const auto hypersurface_file_format =
+        HyperSurfacePatch::InputFormat::DimaNaiveFormat;
+  HyperSurfacePatch hyper(hypersurface_input_file,
+                          hypersurface_file_format,
+                          is_sampled_type,
                           quantum_statistics);
   std::cout << hyper << std::endl;
 
@@ -92,9 +142,8 @@ int main() {
   sampler.initialize(hyper);
 
   std::cout << "Warming up." << std::endl;
-  constexpr int N_warmup = 1000000;
+  constexpr int N_warmup = 100000;
   for (int i = 0; i < N_warmup; ++i) {
-    // std::cout << i << std::endl;
     sampler.one_markov_chain_step(hyper);
   }
   std::cout << "Finished warming up." << std::endl;
@@ -108,9 +157,12 @@ int main() {
     }
   }
   for (const ParticleTypePtr t : sampled_types) {
-    std::cout << t->name() << "  ";
+    if (t->is_stable()) {
+      std::cout << t->name() << "  ";
+    }
   }
   std::cout << std::endl;
+  std::cout << "Total sampled species: " << sampled_types.size() << std::endl;
 
   constexpr int N_decorrelate = 200;
   constexpr int N_printout = 100000;
@@ -119,8 +171,21 @@ int main() {
       sampler.one_markov_chain_step(hyper);
     }
     for (const ParticleTypePtr t : sampled_types) {
-      std::cout << " " << type_count(sampler.particles(), t, 0);
+      if (t->is_stable()) {
+        std::cout << " " << type_count(sampler.particles(), t, 0);
+      }
     }
+    for (const ParticleTypePtr t : sampled_types) {
+      if (t->is_stable()) {
+        std::cout << " " << type_count(sampler.particles(), t, 1);
+      }
+    }
+    for (const ParticleTypePtr t : sampled_types) {
+      if (t->is_stable()) {
+        std::cout << " " << type_count(sampler.particles(), t, 2);
+      }
+    }
+
     std::cout << std::endl;
   }
 
@@ -129,6 +194,6 @@ int main() {
   assert(cons.B == hyper.B());
   assert(cons.S == hyper.S());
   assert(cons.Q == hyper.Q());
-  sampler.print_rejection_stats();
+  // sampler.print_rejection_stats();
   // std::cout << "Final momentum diff: " << cons.momentum - hyper.pmu() << std::endl;
 }
