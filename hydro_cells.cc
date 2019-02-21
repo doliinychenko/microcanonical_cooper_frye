@@ -76,11 +76,16 @@ void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
     smash::FourVector u(u0 * ch_eta + u3 * tau * sh_eta,
                         u1, u2,
                         u0 * sh_eta + u3 * tau * ch_eta);
+    // dsigma output from MUSIC is with lower index, I need upper
+    ds1 = -ds1;
+    ds2 = -ds2;
+    ds3 = -ds3;
     smash::FourVector ds(tau * ch_eta * ds0 - ds3 * sh_eta,
                          tau * ds1, tau * ds2,
                          tau * sh_eta * ds0 - ds3 * ch_eta);
     if (ds.sqr() < 0) {
       std::cout << "dsigma^2 < 0, dsigma = " << ds
+                << "original dsigma = " << smash::FourVector(ds0, ds1, ds2,ds3)
                 << ", T = " << T
                 << ", muB = " << muB
                 << ", cell " << line_counter << std::endl;
