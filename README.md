@@ -16,6 +16,8 @@ which ensures all the conservation laws. One can imagine the outcome as a Markov
 that travels in a special subspace of {cell(i), p_i}, where i varies from 1 to N, and N
 is variable), where the total energy, momentum and quantum numbers are the same.
 
+If you are using this code or its parts, please cite https://arxiv.org/pdf/1902.09775.pdf.
+
 ## Inputs
 
 A file with a list of hypersurface elements. Each element is defined by
@@ -36,13 +38,13 @@ Sampled particles, characterized by
 
 ## Current state
 
-The project is currently at the research and development stage. It
+The project is still at the research and development stage. It
 is tested in a number of simple cases and already optimized to run fast enough
-for practical usage. The code still needs more documentation and clean up,
-but this is postponed until the paper is written.
+for practical usage. For the derivation, explanations, and first results see
+https://arxiv.org/pdf/1902.09775.pdf.
 
-The sampled local distribution is limited to Boltzmann, but it is extendable
-to viscous-corrected distribution and quantum statistics.
+The sampled local distribution is now limited to Boltzmann, but it is extendable
+to viscous-corrected distribution.
 
 
 ## Prequisites
@@ -70,3 +72,12 @@ to viscous-corrected distribution and quantum statistics.
 - If Pythia is not found, try
 
       cmake .. -DPythia_CONFIG_EXECUTABLE=[...]/pythia8235/bin/pythia8-config
+
+## Reproducing the Fig. 1 of arxiv.org/pdf/1902.09775.pdf
+
+- Run ./microcanonical > sampled_output.txt
+
+  If you are running for the first time, it will tabulate 3-body integrals,
+  which takes around 3 hours. Next runs take around 12 minutes to generate
+  10^5 samples. Multiplicities in each cell are printed out, so one can compute
+  means, scaled variances, and correlations using a simple script.
