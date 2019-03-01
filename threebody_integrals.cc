@@ -166,13 +166,13 @@ void ThreeBodyIntegrals::add(double m1, double m2, double m3) {
     a.p[i] = gsl_vector_get(gsl_fitter_->x, i);
   }
 
-  double max_rel_diff = 0.0, x_of_max;
+  double max_rel_diff = 0.0; //, x_of_max = -1.0;
   for (const auto x : tabulated) {
     const double parametrized = integral_fit_function(x.first, a);
     const double rel_diff = (x.second - parametrized) / parametrized;
     if (std::abs(rel_diff) > max_rel_diff) {
       max_rel_diff = std::abs(rel_diff);
-      x_of_max = x.first;
+      // x_of_max = x.first;
     }
     //std::cout << x.first << " " << x.second << " " << parametrized
     //          << " rel. diff. = " << (x.second - parametrized) / parametrized
@@ -317,6 +317,18 @@ double ThreeBodyIntegrals::analytical_value(double srts, double m1,
                      c3 * gsl_sf_ellint_Pcomp(kappa, - qmp/qmm, precision) +
                      c4 * gsl_sf_ellint_Pcomp(kappa, - x1 * qmp / (x2 * qmm), precision);
   return res / (128.0 * M_PI * M_PI * M_PI * srts * srts);
+}
+
+void test_3body_integrals_precision() {
+  ThreeBodyIntegrals test_integrals;
+  test_integrals.add(1.2, 1.3, 1.4);
+  test_integrals.add(0.2, 0.3, 0.4);
+  std::cout << "Numerical integral values: "
+            << test_integrals.value(5.0, 1.2, 1.3, 1.4)*1E8 << " "
+            << test_integrals.value(1.0, 0.2, 0.3, 0.4)*1E8 << std::endl;
+  std::cout << "Analytical integral values: "
+            << ThreeBodyIntegrals::analytical_value(5.0, 1.2, 1.3, 1.4)*1E8 << " "
+            << ThreeBodyIntegrals::analytical_value(1.0, 0.2, 0.3, 0.4)*1E8 << std::endl;
 }
 
 std::ostream &operator<<(std::ostream &out,

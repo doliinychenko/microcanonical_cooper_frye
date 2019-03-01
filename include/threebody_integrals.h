@@ -13,6 +13,19 @@
 #include "smash/forwarddeclarations.h"
 #include "smash/quantumnumbers.h"
 
+/**
+ * This class is used to compute relativistic 3-body phase-space integrals
+ * given by eq. (10) of arXiv:1710.00665 [hep-ph].
+ *
+ * The integrals are tabulated numerically, asymptotics are divided out to
+ * improve precision. The remaining function after dividing out is
+ * fit by a specific parametrization as a function of sqrt{s} - (m1 + m2 +m3)
+ * for every set of m1, m2, m3.
+ *
+ * There is a functionality to save and retrieve these parametrizations
+ * from file. Finally, it turned out that there is an analytical expression,
+ * so it is compared to tabulated integrals too.
+ */
 class ThreeBodyIntegrals {
  public:
   static constexpr int n_tabulation_points = 100;
@@ -58,6 +71,8 @@ class ThreeBodyIntegrals {
   smash::Integrator integrate_;
   gsl_multifit_fdfsolver *gsl_fitter_;
 };
+
+void test_3body_integrals_precision();
 
 std::ostream &operator<<(std::ostream &out,
     const ThreeBodyIntegrals::integral_parametrization &p);
