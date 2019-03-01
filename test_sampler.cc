@@ -95,19 +95,10 @@ void sample(std::string hypersurface_input_file,
   std::cout << sampler.particles().size() << " particles" << std::endl;
   sampler.print_rejection_stats();
 
-  ParticleTypePtrList sampled_types;
-  for (const ParticleType &ptype : ParticleType::list_all()) {
-    if (is_sampled_type(&ptype)) {
-      sampled_types.push_back(&ptype);
-    }
-  }
-  for (const ParticleTypePtr t : sampled_types) {
-    if (t->is_stable()) {
-      std::cout << t->name() << "  ";
-    }
+  for (const ParticleTypePtr t : printout_types) {
+    std::cout << t->name() << "  ";
   }
   std::cout << std::endl;
-  std::cout << "Total sampled species: " << sampled_types.size() << std::endl;
 
   for (int j = 0; j < N_printout; j++) {
     for (int i = 0; i < N_decorrelate; ++i) {
@@ -153,10 +144,6 @@ int main() {
       printout_types.push_back(&ptype);
     }
   }
-  for (const ParticleTypePtr t : printout_types) {
-    std::cout << t->name() << "  ";
-  }
-  std::cout << std::endl;
 
   const int N_warmup = 1E6,
             N_decorrelate = 2E2,
