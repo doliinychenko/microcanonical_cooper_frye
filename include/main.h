@@ -5,12 +5,12 @@
 
 #include <vector>
 
-#include "microcanonical_sampler.h"
 #include "hydro_cells.h"
+#include "microcanonical_sampler.h"
 
-#include "smash/particletype.h"
-#include "smash/isoparticletype.h"
 #include "smash/decaymodes.h"
+#include "smash/isoparticletype.h"
+#include "smash/particletype.h"
 
 /**
  *  Initializes random seed. It is a copy from SMASH 1.5 code. In SMASH 1.6
@@ -52,7 +52,6 @@ bool is_sampled_type(const smash::ParticleTypePtr t);
  */
 void sample(std::string hypersurface_input_file,
             HyperSurfacePatch::InputFormat hypersurface_file_format,
-            std::vector<smash::ParticleTypePtr>printout_types,
-            int N_warmup, int N_decorrelate, int N_printout);
-#endif  // MICROCANONICAL_SAMPLING_MAIN_H
-
+            std::vector<smash::ParticleTypePtr> printout_types, int N_warmup,
+            int N_decorrelate, int N_printout);
+#endif // MICROCANONICAL_SAMPLING_MAIN_H

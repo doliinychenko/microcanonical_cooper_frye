@@ -1,18 +1,18 @@
-#include <iostream>
-#include <iomanip>
-#include <string>
 #include <fstream>
+#include <iomanip>
+#include <iostream>
 #include <streambuf>
+#include <string>
 
 // #include "gsl/gsl_sf_gamma.h"
 
 #include "kmeans_clustering.h"
 #include "main.h"
 
-#include "smash/random.h"
 #include "smash/angles.h"
 #include "smash/constants.h"
 #include "smash/pow.h"
+#include "smash/random.h"
 
 using namespace smash;
 
@@ -20,9 +20,9 @@ void initialize_random_number_generator() {
   // Seed with a truly random 63-bit value, if possible
   std::random_device rd;
   static_assert(std::is_same<decltype(rd()), uint32_t>::value,
-               "random_device is assumed to generate uint32_t");
-  uint64_t unsigned_seed = (static_cast<uint64_t>(rd()) << 32) |
-                            static_cast<uint64_t>(rd());
+                "random_device is assumed to generate uint32_t");
+  uint64_t unsigned_seed =
+      (static_cast<uint64_t>(rd()) << 32) | static_cast<uint64_t>(rd());
   // Discard the highest bit to make sure it fits into a positive int64_t
   int64_t seed = static_cast<int64_t>(unsigned_seed >> 1);
   random::set_seed(seed);
@@ -74,14 +74,12 @@ bool is_sampled_type(const smash::ParticleTypePtr t) {
 
 void sample(std::string hypersurface_input_file,
             HyperSurfacePatch::InputFormat hypersurface_file_format,
-            std::vector<ParticleTypePtr>printout_types,
-            int N_warmup, int N_decorrelate, int N_printout) {
+            std::vector<ParticleTypePtr> printout_types, int N_warmup,
+            int N_decorrelate, int N_printout) {
   constexpr bool quantum_statistics = false;
 
-  HyperSurfacePatch hyper(hypersurface_input_file,
-                          hypersurface_file_format,
-                          is_sampled_type,
-                          quantum_statistics);
+  HyperSurfacePatch hyper(hypersurface_input_file, hypersurface_file_format,
+                          is_sampled_type, quantum_statistics);
   std::cout << hyper << std::endl;
 
   MicrocanonicalSampler sampler(is_sampled_type, 0, quantum_statistics);
@@ -106,8 +104,8 @@ void sample(std::string hypersurface_input_file,
     }
     std::map<std::pair<ParticleTypePtr, size_t>, size_t> counter;
     for (const auto &particle : sampler.particles()) {
-      const std::pair<ParticleTypePtr, size_t> key(
-                particle.type, particle.cell_index);
+      const std::pair<ParticleTypePtr, size_t> key(particle.type,
+                                                   particle.cell_index);
       if (counter.find(key) == counter.end()) {
         counter[key] = 0;
       }
@@ -145,10 +143,7 @@ int main() {
     }
   }
 
-  const int N_warmup = 1E6,
-            N_decorrelate = 2E2,
-            N_printout = 1E5;
-  sample("../hydro_cells.dat",
-         HyperSurfacePatch::InputFormat::DimaNaiveFormat,
+  const int N_warmup = 1E6, N_decorrelate = 2E2, N_printout = 1E5;
+  sample("../hydro_cells.dat", HyperSurfacePatch::InputFormat::DimaNaiveFormat,
          printout_types, N_warmup, N_decorrelate, N_printout);
 }

@@ -1,8 +1,8 @@
 #ifndef MICROCANONICAL_SAMPLER_HYDRO_CELLS_H
 #define MICROCANONICAL_SAMPLER_HYDRO_CELLS_H
 
-#include <vector>
 #include <functional>
+#include <vector>
 
 #include "smash/fourvector.h"
 #include "smash/particletype.h"
@@ -10,10 +10,7 @@
 class HyperSurfacePatch {
 
 public:
-  enum class InputFormat {
-    DimaNaiveFormat = 0,
-    MUSIC_ASCII_3plus1D = 1
-  };
+  enum class InputFormat { DimaNaiveFormat = 0, MUSIC_ASCII_3plus1D = 1 };
 
   struct hydro_cell {
     smash::FourVector r;
@@ -43,8 +40,7 @@ public:
    *            calculation.
    */
   HyperSurfacePatch(
-      const std::string &input_file,
-      InputFormat read_in_format,
+      const std::string &input_file, InputFormat read_in_format,
       const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
       bool quantum_statistics);
   /// Cannot be copied
@@ -81,7 +77,6 @@ private:
   const unsigned int quantum_series_max_terms_;
   /// Relative precision, at which quantum series summation stops
   const double quantum_series_rel_precision_;
-
 };
 
 /// Convenient printout of the HyperSurfacePatch class

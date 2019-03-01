@@ -19,11 +19,10 @@
  * The number of iterations is a detail of the algorithm, which tells, how many
  * adjustments of cluster centers should be made at maximum.
  */
-std::vector<smash::ThreeVector> k_means(
-                  const std::vector<HyperSurfacePatch::hydro_cell>& cells,
-                  size_t number_of_clusters,
-                  size_t number_of_iterations,
-                  std::vector<size_t>& assignments);
+std::vector<smash::ThreeVector>
+k_means(const std::vector<HyperSurfacePatch::hydro_cell> &cells,
+        size_t number_of_clusters, size_t number_of_iterations,
+        std::vector<size_t> &assignments);
 
 /// Used to test the k_means clustering function above
 void test_clustering();

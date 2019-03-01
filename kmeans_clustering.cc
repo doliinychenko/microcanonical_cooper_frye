@@ -6,16 +6,15 @@
 #include "smash/random.h"
 #include "smash/threevector.h"
 
-std::vector<smash::ThreeVector> k_means(
-                  const std::vector<HyperSurfacePatch::hydro_cell>& cells,
-                  size_t number_of_clusters,
-                  size_t number_of_iterations,
-                  std::vector<size_t>& assignments) {
+std::vector<smash::ThreeVector>
+k_means(const std::vector<HyperSurfacePatch::hydro_cell> &cells,
+        size_t number_of_clusters, size_t number_of_iterations,
+        std::vector<size_t> &assignments) {
 
   assert(assignments.size() == cells.size());
   // Pick centroids as random points from the dataset.
   std::vector<smash::ThreeVector> means(number_of_clusters);
-  for (auto& cluster : means) {
+  for (auto &cluster : means) {
     size_t i_cell = smash::random::uniform_int<size_t>(0, cells.size() - 1);
     cluster = cells[i_cell].u.velocity();
   }
@@ -26,8 +25,8 @@ std::vector<smash::ThreeVector> k_means(
       double best_distance = std::numeric_limits<double>::max();
       size_t best_cluster = 0;
       for (size_t cluster = 0; cluster < number_of_clusters; ++cluster) {
-        const double distance = (cells[cell].u.velocity() -
-                                 means[cluster]).sqr();
+        const double distance =
+            (cells[cell].u.velocity() - means[cluster]).sqr();
         if (distance < best_distance) {
           best_distance = distance;
           best_cluster = cluster;
@@ -57,17 +56,16 @@ std::vector<smash::ThreeVector> k_means(
 }
 
 void test_clustering() {
-  std::vector<HyperSurfacePatch::hydro_cell>cells;
+  std::vector<HyperSurfacePatch::hydro_cell> cells;
   for (int i = 0; i < 100000; i++) {
     smash::Angles phitheta;
     phitheta.distribute_isotropically();
-    const smash::ThreeVector v = smash::random::canonical() *
-                                 phitheta.threevec();
+    const smash::ThreeVector v =
+        smash::random::canonical() * phitheta.threevec();
     const double gamma = 1.0 / std::sqrt(1.0 - v.sqr());
     const smash::FourVector u(gamma, gamma * v);
-    cells.push_back({smash::FourVector(),
-                     smash::FourVector(),
-                     u, 0.0, 0.0, 0.0, 0.0});
+    cells.push_back(
+        {smash::FourVector(), smash::FourVector(), u, 0.0, 0.0, 0.0, 0.0});
   }
   std::vector<size_t> assignments;
   assignments.resize(cells.size());
@@ -85,4 +83,3 @@ void test_clustering() {
   }
   std::cout << std::endl;
 }
-
