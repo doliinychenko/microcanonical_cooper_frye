@@ -119,7 +119,7 @@ void ThreeBodyIntegrals::add(double m1, double m2, double m3) {
   fdf.f = &gslfit_f;
   fdf.df = NULL;  // &gslfit_df;  // set to NULL for finite-difference Jacobian
   fdf.fdf = NULL; //&gslfit_fdf; // Sometimes computing function AND Jacobian is
-                  //faster
+                  // faster
   fdf.n = n_tabulation_points;
   fdf.p = n_fit_param;
   fdf.params = &tabulated;

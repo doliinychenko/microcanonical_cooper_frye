@@ -13,48 +13,9 @@
 #include "smash/constants.h"
 #include "smash/pow.h"
 #include "smash/random.h"
+#include "smash/setup_particles_decaymodes.h"
 
 using namespace smash;
-
-void initialize_random_number_generator() {
-  // Seed with a truly random 63-bit value, if possible
-  std::random_device rd;
-  static_assert(std::is_same<decltype(rd()), uint32_t>::value,
-                "random_device is assumed to generate uint32_t");
-  uint64_t unsigned_seed =
-      (static_cast<uint64_t>(rd()) << 32) | static_cast<uint64_t>(rd());
-  // Discard the highest bit to make sure it fits into a positive int64_t
-  int64_t seed = static_cast<int64_t>(unsigned_seed >> 1);
-  random::set_seed(seed);
-}
-
-void load_smash_particles() {
-  std::string smash_dir("/home/dima/Work/SMASH/smash-devel/");
-  // smash_dir = std::getenv("SMASH_DIR");
-  if (smash_dir == "") {
-    throw std::runtime_error("Failed to load SMASH particle types."
-                             " SMASH_DIR is not set.");
-  }
-  std::cout << "Loading SMASH particle types and decay modes" << std::endl;
-  std::ifstream particles_input_file(smash_dir + "/input/particles.txt");
-  std::stringstream buffer;
-  if (particles_input_file) {
-    buffer << particles_input_file.rdbuf();
-    ParticleType::create_type_list(buffer.str());
-  } else {
-    std::cout << "File with SMASH particle list not found." << std::endl;
-  }
-  std::ifstream decaymodes_input_file(smash_dir + "/input/decaymodes.txt");
-  if (decaymodes_input_file) {
-    buffer.clear();
-    buffer.str(std::string());
-    buffer << decaymodes_input_file.rdbuf();
-    DecayModes::load_decaymodes(buffer.str());
-    ParticleType::check_consistency();
-  } else {
-    std::cout << "File with SMASH decaymodes not found." << std::endl;
-  }
-}
 
 int type_count(const MicrocanonicalSampler::SamplerParticleList &particles,
                const ParticleTypePtr t, size_t cell_number) {
@@ -129,8 +90,8 @@ void sample(std::string hypersurface_input_file,
 }
 
 int main() {
-  initialize_random_number_generator();
-  load_smash_particles();
+  smash::random::set_seed(smash::random::generate_63bit_seed());
+  smash::load_default_particles_and_decaymodes();
 
   // test_clustering();
   // test_3body_integrals_precision();

@@ -1,8 +1,6 @@
 #ifndef MICROCANONICAL_SAMPLING_MAIN_H
 #define MICROCANONICAL_SAMPLING_MAIN_H
 
-#include "smash/particletype.h"
-
 #include <vector>
 
 #include "hydro_cells.h"
@@ -11,20 +9,6 @@
 #include "smash/decaymodes.h"
 #include "smash/isoparticletype.h"
 #include "smash/particletype.h"
-
-/**
- *  Initializes random seed. It is a copy from SMASH 1.5 code. In SMASH 1.6
- *  this function is already present as a callable, so as soon as
- *  one switches to SMASH 1.6, this function can be substituted by calling
- *  SMASH function.
- */
-void initialize_random_number_generator();
-
-/**
- * Loads SMASH default particles and their decay modes. With SMASH 1.6
- * this function should be substituted by a SMASH callable.
- */
-void load_smash_particles();
 
 /**
  * Count, how many particles of type t are in the cell cell_number.
