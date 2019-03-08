@@ -52,10 +52,8 @@ public:
   HyperSurfacePatch(const HyperSurfacePatch &big_patch,
                     const std::vector<size_t> subpatch_indices);
 
-  /// Cannot be copied
-  HyperSurfacePatch(const HyperSurfacePatch &) = delete;
-  /// Cannot be copied
-  HyperSurfacePatch &operator=(const HyperSurfacePatch &) = delete;
+  /// Split into n patches, return patches
+  std::vector<HyperSurfacePatch> split(size_t n);
 
   int B() const { return B_tot_; }
   int S() const { return S_tot_; }

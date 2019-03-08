@@ -2,6 +2,7 @@
 
 #include "hydro_cells.h"
 
+#include "kmeans_clustering.h"
 #include "smash/constants.h"
 
 #include <fstream>
@@ -200,6 +201,29 @@ void HyperSurfacePatch::compute_totals() {
   B_tot_ = static_cast<int>(std::round(B_tot_nonint_));
   S_tot_ = static_cast<int>(std::round(S_tot_nonint_));
   Q_tot_ = static_cast<int>(std::round(Q_tot_nonint_));
+}
+
+std::vector<HyperSurfacePatch> HyperSurfacePatch::split(size_t n_patches) {
+  std::cout << "Splitting hypersurface of " << Ncells() << " cells into "
+            << n_patches << " patches." << std::endl;
+  std::vector<size_t> patch_indices;
+  std::vector<smash::ThreeVector> cluster_centers =
+      k_means(cells_, n_patches, 100, patch_indices);
+
+  std::vector<std::vector<size_t>> cell_indices;
+  cell_indices.resize(n_patches);
+  for (size_t i_cell = 0; i_cell < cells_.size(); i_cell++) {
+    size_t patch_index = patch_indices[i_cell];
+    cell_indices[patch_index].push_back(i_cell);
+  }
+
+  std::vector<HyperSurfacePatch> patches;
+  for (size_t i_patch = 0; i_patch < n_patches; i_patch++) {
+    patches.push_back(HyperSurfacePatch(*this, cell_indices[i_patch]));
+    std::cout << "Patch " << i_patch << " (" << cell_indices[i_patch].size()
+              << " cells). " << patches.back() << std::endl;
+  }
+  return patches;
 }
 
 std::ostream &operator<<(std::ostream &out, const HyperSurfacePatch &patch) {
