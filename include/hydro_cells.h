@@ -43,6 +43,15 @@ public:
       const std::string &input_file, InputFormat read_in_format,
       const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
       bool quantum_statistics);
+  /**
+   * Construct a hypersurface subpatch from a given patch and a list of
+   * cell indices to pick; compute total energy, momentum, and quantum numbers.
+   * \param[in] big_patch a patch, from which a subpatch is taken.
+   * \param[in] subpatch_indices indices of the cells to take.
+   */
+  HyperSurfacePatch(const HyperSurfacePatch &big_patch,
+                    const std::vector<size_t> subpatch_indices);
+
   /// Cannot be copied
   HyperSurfacePatch(const HyperSurfacePatch &) = delete;
   /// Cannot be copied
@@ -55,6 +64,9 @@ public:
   smash::FourVector pmu() const { return pmu_tot_; }
   const std::vector<hydro_cell> &cells() const { return cells_; }
   const hydro_cell &cell(size_t index) const { return cells_[index]; }
+  const std::vector<smash::ParticleTypePtr> sampled_types() const {
+    return sampled_types_;
+  }
   size_t Ncells() const { return cells_.size(); }
 
 private:
@@ -74,9 +86,9 @@ private:
   int B_tot_, S_tot_, Q_tot_;
   bool quantum_statistics_;
   /// Maximal number of terms in the series for quantum formulas
-  const unsigned int quantum_series_max_terms_;
+  static constexpr unsigned int quantum_series_max_terms_ = 100;
   /// Relative precision, at which quantum series summation stops
-  const double quantum_series_rel_precision_;
+  static constexpr double quantum_series_rel_precision_ = 1e-12;
 };
 
 /// Convenient printout of the HyperSurfacePatch class

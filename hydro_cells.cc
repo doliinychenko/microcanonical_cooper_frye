@@ -10,8 +10,7 @@ HyperSurfacePatch::HyperSurfacePatch(
     const std::string &input_file, InputFormat read_in_format,
     const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
     bool quantum_statistics)
-    : quantum_statistics_(quantum_statistics),
-      quantum_series_max_terms_(100), quantum_series_rel_precision_(1e-12) {
+    : quantum_statistics_(quantum_statistics) {
   for (const smash::ParticleType &ptype : smash::ParticleType::list_all()) {
     if (is_sampled(&ptype)) {
       sampled_types_.push_back(&ptype);
@@ -28,6 +27,17 @@ HyperSurfacePatch::HyperSurfacePatch(
     break;
   default:
     throw std::runtime_error("Unknown input file format");
+  }
+  compute_totals();
+}
+
+HyperSurfacePatch::HyperSurfacePatch(const HyperSurfacePatch &big_patch,
+                  const std::vector<size_t> subpatch_indices) {
+  quantum_statistics_ = big_patch.quantum_statistics();
+  sampled_types_ = big_patch.sampled_types();
+  cells_.clear();
+  for (size_t i : subpatch_indices) {
+    cells_.push_back(big_patch.cell(i));
   }
   compute_totals();
 }
