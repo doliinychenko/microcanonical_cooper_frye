@@ -39,19 +39,32 @@ void sample(std::string hypersurface_input_file,
 
   HyperSurfacePatch hyper(hypersurface_input_file, hypersurface_file_format,
                           is_sampled_type, quantum_statistics);
-  // auto patches = hyper.split(3);
-  std::cout << hyper << std::endl;
-
+  std::cout << "Full hypersurface: " << hyper << std::endl;
   MicrocanonicalSampler sampler(is_sampled_type, 0, quantum_statistics);
-  MicrocanonicalSampler::SamplerParticleList particles;
-  sampler.initialize(hyper, particles);
+
+  constexpr size_t number_of_patches = 1;
+  auto patches = hyper.split(number_of_patches);
+
+  std::vector<MicrocanonicalSampler::SamplerParticleList> particles;
+  particles.resize(number_of_patches);
+
+  for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+    std::cout << "Initializing patch " << i_patch << std::endl;
+    sampler.initialize(patches[i_patch], particles[i_patch]);
+  }
 
   std::cout << "Warming up." << std::endl;
-  for (int i = 0; i < N_warmup; ++i) {
-    sampler.one_markov_chain_step(hyper, particles);
+  for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+    for (int i = 0; i < N_warmup; ++i) {
+      sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
+    }
   }
   std::cout << "Finished warming up." << std::endl;
-  std::cout << particles.size() << " particles" << std::endl;
+  size_t total_particles = 0;
+  for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+    total_particles += particles[i_patch].size();
+  }
+  std::cout << total_particles << " particles" << std::endl;
   sampler.print_rejection_stats();
 
   for (const ParticleTypePtr t : printout_types) {
@@ -61,16 +74,22 @@ void sample(std::string hypersurface_input_file,
 
   for (int j = 0; j < N_printout; j++) {
     for (int i = 0; i < N_decorrelate; ++i) {
-      sampler.one_markov_chain_step(hyper, particles);
+      for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+        sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
+      }
     }
     std::map<std::pair<ParticleTypePtr, size_t>, size_t> counter;
-    for (const auto &particle : particles) {
-      const std::pair<ParticleTypePtr, size_t> key(particle.type,
-                                                   particle.cell_index);
-      if (counter.find(key) == counter.end()) {
-        counter[key] = 0;
+    size_t total_cells_previous = 0;
+    for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+      for (const auto &particle : particles[i_patch]) {
+        const std::pair<ParticleTypePtr, size_t> key(particle.type,
+                                   particle.cell_index + total_cells_previous);
+        if (counter.find(key) == counter.end()) {
+          counter[key] = 0;
+        }
+        counter[key]++;
       }
-      counter[key]++;
+      total_cells_previous += patches[i_patch].Ncells();
     }
     for (size_t icell = 0; icell < hyper.Ncells(); icell++) {
       for (const ParticleTypePtr t : printout_types) {
@@ -81,11 +100,13 @@ void sample(std::string hypersurface_input_file,
     std::cout << std::endl;
   }
 
-  MicrocanonicalSampler::QuantumNumbers cons(particles);
-  assert((cons.momentum - hyper.pmu()).abs() < 1.e-6);
-  assert(cons.B == hyper.B());
-  assert(cons.S == hyper.S());
-  assert(cons.Q == hyper.Q());
+  for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+    MicrocanonicalSampler::QuantumNumbers cons(particles[i_patch]);
+    assert((cons.momentum - patches[i_patch].pmu()).abs() < 1.e-6);
+    assert(cons.B == patches[i_patch].B());
+    assert(cons.S == patches[i_patch].S());
+    assert(cons.Q == patches[i_patch].Q());
+  }
   // sampler.print_rejection_stats();
 }
 
