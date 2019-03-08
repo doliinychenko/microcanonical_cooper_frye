@@ -207,6 +207,7 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(size_t n_patches) {
   std::cout << "Splitting hypersurface of " << Ncells() << " cells into "
             << n_patches << " patches." << std::endl;
   std::vector<size_t> patch_indices;
+  patch_indices.resize(Ncells());
   std::vector<smash::ThreeVector> cluster_centers =
       k_means(cells_, n_patches, 100, patch_indices);
 
@@ -220,8 +221,7 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(size_t n_patches) {
   std::vector<HyperSurfacePatch> patches;
   for (size_t i_patch = 0; i_patch < n_patches; i_patch++) {
     patches.push_back(HyperSurfacePatch(*this, cell_indices[i_patch]));
-    std::cout << "Patch " << i_patch << " (" << cell_indices[i_patch].size()
-              << " cells). " << patches.back() << std::endl;
+    std::cout << "Patch " << i_patch << ". " << patches.back() << std::endl;
   }
   return patches;
 }

@@ -167,8 +167,9 @@ MicrocanonicalSampler::MicrocanonicalSampler(
   }
 }
 
-void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface) {
-  particles_.clear();
+void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface,
+                                       SamplerParticleList &particles) {
+  particles.clear();
   const int B = hypersurface.B(), S = hypersurface.S(), Q = hypersurface.Q();
   smash::ParticleTypePtr baryon, antibaryon, strange_meson, antistrange_meson,
       plus_nonstrange_meson, minus_nonstrange_meson, neutral_meson;
@@ -205,7 +206,7 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface) {
                          " to sample do not include baryons");
     }
     for (int i = 0; i < B; i++) {
-      particles_.push_back({smash::FourVector(), baryon, 0});
+      particles.push_back({smash::FourVector(), baryon, 0});
     }
     remaining_S -= baryon->strangeness() * B;
     remaining_Q -= baryon->charge() * B;
@@ -215,7 +216,7 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface) {
                          " to sample do not include antibaryons");
     }
     for (int i = 0; i < std::abs(B); i++) {
-      particles_.push_back({smash::FourVector(), antibaryon, 0});
+      particles.push_back({smash::FourVector(), antibaryon, 0});
     }
     remaining_S -= antibaryon->strangeness() * std::abs(B);
     remaining_Q -= antibaryon->charge() * std::abs(B);
@@ -226,7 +227,7 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface) {
                          " to sample do not include mesons with S > 0");
     }
     for (int i = 0; i < remaining_S; i++) {
-      particles_.push_back({smash::FourVector(), strange_meson, 0});
+      particles.push_back({smash::FourVector(), strange_meson, 0});
     }
     remaining_Q -= strange_meson->charge() * remaining_S;
   } else if (remaining_S < 0) {
@@ -235,7 +236,7 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface) {
                          " to sample do not include mesons with S < 0");
     }
     for (int i = 0; i < std::abs(remaining_S); i++) {
-      particles_.push_back({smash::FourVector(), antistrange_meson, 0});
+      particles.push_back({smash::FourVector(), antistrange_meson, 0});
     }
     remaining_Q -= antistrange_meson->charge() * std::abs(remaining_S);
   }
@@ -245,7 +246,7 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface) {
                          " do not include nonstrange mesons with Q > 0");
     }
     for (int i = 0; i < remaining_Q; i++) {
-      particles_.push_back({smash::FourVector(), plus_nonstrange_meson, 0});
+      particles.push_back({smash::FourVector(), plus_nonstrange_meson, 0});
     }
   } else if (remaining_Q < 0) {
     if (!minus_nonstrange_meson) {
@@ -253,17 +254,17 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface) {
                          " do not include nonstrange mesons with Q < 0");
     }
     for (int i = 0; i < std::abs(remaining_Q); i++) {
-      particles_.push_back({smash::FourVector(), minus_nonstrange_meson, 0});
+      particles.push_back({smash::FourVector(), minus_nonstrange_meson, 0});
     }
   }
   if (neutral_meson) {
     for (int i = 0; i < 10; i++) {
-      particles_.push_back({smash::FourVector(), neutral_meson, 0});
+      particles.push_back({smash::FourVector(), neutral_meson, 0});
     }
   }
 
   // Assign some random momenta
-  for (SamplerParticle &part : particles_) {
+  for (SamplerParticle &part : particles) {
     const double m = part.type->mass();
     const double pabs = 0.1;
     smash::Angles phitheta;
@@ -272,20 +273,21 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface) {
                                 pabs * phitheta.threevec());
     part.momentum = mom;
   }
-  renormalize_momenta(hypersurface.pmu());
+  renormalize_momenta(hypersurface.pmu(), particles);
 
-  QuantumNumbers cons(particles_);
+  QuantumNumbers cons(particles);
   assert(cons.B == B);
   assert(cons.S == S);
   assert(cons.Q == Q);
 }
 
 void MicrocanonicalSampler::one_markov_chain_step(
-    const HyperSurfacePatch &hypersurface) {
+    const HyperSurfacePatch &hypersurface,
+    SamplerParticleList &particles) {
   if (smash::random::uniform_int(0, 1)) {
-    random_two_to_three(hypersurface);
+    random_two_to_three(hypersurface, particles);
   } else {
-    random_three_to_two(hypersurface);
+    random_three_to_two(hypersurface, particles);
   }
 }
 
@@ -396,8 +398,9 @@ size_t MicrocanonicalSampler::N_available_channels2(std::array<int, 3> &BSQ,
 }
 
 void MicrocanonicalSampler::random_two_to_three(
-    const HyperSurfacePatch &hypersurface) {
-  const size_t Npart = particles_.size();
+    const HyperSurfacePatch &hypersurface,
+    SamplerParticleList &particles) {
+  const size_t Npart = particles.size();
   const size_t Ncells = hypersurface.Ncells();
   // Choose 2 random particles
   size_t in_index1, in_index2;
@@ -405,7 +408,7 @@ void MicrocanonicalSampler::random_two_to_three(
   do {
     in_index2 = smash::random::uniform_int<size_t>(0, Npart - 1);
   } while (in_index1 == in_index2);
-  SamplerParticleList in{particles_[in_index1], particles_[in_index2]};
+  SamplerParticleList in{particles[in_index1], particles[in_index2]};
   QuantumNumbers cons(in);
   const smash::FourVector momentum_total = cons.momentum;
   const double srts = momentum_total.abs();
@@ -490,9 +493,9 @@ void MicrocanonicalSampler::random_two_to_three(
 
   // No need to do it: w = std::min(1.0, w);
   if (smash::random::canonical() < w) {
-    particles_[in_index1] = out[0];
-    particles_[in_index2] = out[1];
-    particles_.push_back(out[2]);
+    particles[in_index1] = out[0];
+    particles[in_index2] = out[1];
+    particles.push_back(out[2]);
     accepted23_count_++;
     if (debug_printout_ == 1) {
       std::cout << in << "->" << out << ";" << srts << std::endl;
@@ -503,8 +506,9 @@ void MicrocanonicalSampler::random_two_to_three(
 }
 
 void MicrocanonicalSampler::random_three_to_two(
-    const HyperSurfacePatch &hypersurface) {
-  const size_t Npart = particles_.size();
+    const HyperSurfacePatch &hypersurface,
+    SamplerParticleList &particles) {
+  const size_t Npart = particles.size();
   const size_t Ncells = hypersurface.Ncells();
   if (Npart < 3) {
     return;
@@ -518,8 +522,8 @@ void MicrocanonicalSampler::random_three_to_two(
   do {
     in_index3 = smash::random::uniform_int<size_t>(0, Npart - 1);
   } while (in_index3 == in_index1 || in_index3 == in_index2);
-  SamplerParticleList in{particles_[in_index1], particles_[in_index2],
-                         particles_[in_index3]};
+  SamplerParticleList in{particles[in_index1], particles[in_index2],
+                         particles[in_index3]};
   QuantumNumbers cons(in);
   smash::FourVector momentum_total = cons.momentum;
   const double srts = momentum_total.abs();
@@ -606,9 +610,9 @@ void MicrocanonicalSampler::random_three_to_two(
 
   // No need to do it: w = std::min(1.0, w);
   if (smash::random::canonical() < w) {
-    particles_[in_index1] = out[0];
-    particles_[in_index2] = out[1];
-    particles_.erase(particles_.begin() + in_index3);
+    particles[in_index1] = out[0];
+    particles[in_index2] = out[1];
+    particles.erase(particles.begin() + in_index3);
     accepted32_count_++;
     if (debug_printout_) {
       std::cout << in << "->" << out << ";" << srts << std::endl;
@@ -619,18 +623,19 @@ void MicrocanonicalSampler::random_three_to_two(
 }
 
 void MicrocanonicalSampler::renormalize_momenta(
-    const smash::FourVector &required_total_momentum) {
+    const smash::FourVector &required_total_momentum,
+    SamplerParticleList &particles) {
 
   // Centralize momenta
-  QuantumNumbers conserved = QuantumNumbers(particles_);
-  std::cout << particles_.size() << " particles. " << std::endl;
+  QuantumNumbers conserved = QuantumNumbers(particles);
+  std::cout << particles.size() << " particles. " << std::endl;
   std::cout << "Required 4-momentum: " << required_total_momentum << std::endl;
   std::cout << "Sampled 4-momentum: " << conserved.momentum << std::endl;
   const smash::ThreeVector mom_to_add =
       (required_total_momentum.threevec() - conserved.momentum.threevec()) /
-      particles_.size();
+      particles.size();
   std::cout << "Adjusting momenta by " << mom_to_add << std::endl;
-  for (auto &particle : particles_) {
+  for (auto &particle : particles) {
     const double m = particle.type->mass();
     const smash::ThreeVector mom3 = particle.momentum.threevec() + mom_to_add;
     const double Energy = std::sqrt(m * m + mom3.sqr());
@@ -638,14 +643,14 @@ void MicrocanonicalSampler::renormalize_momenta(
   }
 
   // Boost every particle to the common center of mass frame
-  conserved = QuantumNumbers(particles_);
+  conserved = QuantumNumbers(particles);
   const smash::ThreeVector beta_CM_generated = conserved.momentum.velocity();
   const smash::ThreeVector beta_CM_required =
       required_total_momentum.velocity();
 
   double E = 0.0;
   double E_expected = required_total_momentum.abs();
-  for (auto &particle : particles_) {
+  for (auto &particle : particles) {
     particle.momentum = particle.momentum.LorentzBoost(beta_CM_generated);
     E += particle.momentum.x0();
   }
@@ -664,7 +669,7 @@ void MicrocanonicalSampler::renormalize_momenta(
   do {
     a = 0.5 * (a_min + a_max);
     E = 0.0;
-    for (const auto &particle : particles_) {
+    for (const auto &particle : particles) {
       const double p2 = particle.momentum.threevec().sqr();
       const double E2 = particle.momentum.x0() * particle.momentum.x0();
       E += std::sqrt(E2 + a * (a + 2.0) * p2);
@@ -681,7 +686,7 @@ void MicrocanonicalSampler::renormalize_momenta(
   } while (std::abs(er) > tolerance && iter < max_iter);
 
   std::cout << "Renormalizing momenta by factor 1+a, a = " << a << std::endl;
-  for (auto &particle : particles_) {
+  for (auto &particle : particles) {
     const double m = particle.type->mass();
     smash::ThreeVector mom3 = particle.momentum.threevec();
     mom3 *= (1 + a);
@@ -689,7 +694,7 @@ void MicrocanonicalSampler::renormalize_momenta(
     particle.momentum = smash::FourVector(Energy, mom3);
     particle.momentum = particle.momentum.LorentzBoost(-beta_CM_required);
   }
-  QuantumNumbers conserved_final = QuantumNumbers(particles_);
+  QuantumNumbers conserved_final = QuantumNumbers(particles);
   std::cout << "Obtained total momentum: " << conserved_final.momentum
             << std::endl;
 }

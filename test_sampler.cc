@@ -4,8 +4,6 @@
 #include <streambuf>
 #include <string>
 
-// #include "gsl/gsl_sf_gamma.h"
-
 #include "kmeans_clustering.h"
 #include "main.h"
 
@@ -41,17 +39,19 @@ void sample(std::string hypersurface_input_file,
 
   HyperSurfacePatch hyper(hypersurface_input_file, hypersurface_file_format,
                           is_sampled_type, quantum_statistics);
+  // auto patches = hyper.split(3);
   std::cout << hyper << std::endl;
 
   MicrocanonicalSampler sampler(is_sampled_type, 0, quantum_statistics);
-  sampler.initialize(hyper);
+  MicrocanonicalSampler::SamplerParticleList particles;
+  sampler.initialize(hyper, particles);
 
   std::cout << "Warming up." << std::endl;
   for (int i = 0; i < N_warmup; ++i) {
-    sampler.one_markov_chain_step(hyper);
+    sampler.one_markov_chain_step(hyper, particles);
   }
   std::cout << "Finished warming up." << std::endl;
-  std::cout << sampler.particles().size() << " particles" << std::endl;
+  std::cout << particles.size() << " particles" << std::endl;
   sampler.print_rejection_stats();
 
   for (const ParticleTypePtr t : printout_types) {
@@ -61,10 +61,10 @@ void sample(std::string hypersurface_input_file,
 
   for (int j = 0; j < N_printout; j++) {
     for (int i = 0; i < N_decorrelate; ++i) {
-      sampler.one_markov_chain_step(hyper);
+      sampler.one_markov_chain_step(hyper, particles);
     }
     std::map<std::pair<ParticleTypePtr, size_t>, size_t> counter;
-    for (const auto &particle : sampler.particles()) {
+    for (const auto &particle : particles) {
       const std::pair<ParticleTypePtr, size_t> key(particle.type,
                                                    particle.cell_index);
       if (counter.find(key) == counter.end()) {
@@ -81,7 +81,7 @@ void sample(std::string hypersurface_input_file,
     std::cout << std::endl;
   }
 
-  MicrocanonicalSampler::QuantumNumbers cons(sampler.particles());
+  MicrocanonicalSampler::QuantumNumbers cons(particles);
   assert((cons.momentum - hyper.pmu()).abs() < 1.e-6);
   assert(cons.B == hyper.B());
   assert(cons.S == hyper.S());

@@ -47,15 +47,15 @@ public:
   /// Cannot be copied
   MicrocanonicalSampler &operator=(const MicrocanonicalSampler &) = delete;
 
-  void initialize(const HyperSurfacePatch &hypersurface);
-  void one_markov_chain_step(const HyperSurfacePatch &hypersurface);
+  void initialize(const HyperSurfacePatch &hypersurface,
+                  SamplerParticleList &particles);
+  void one_markov_chain_step(const HyperSurfacePatch &hypersurface,
+                             SamplerParticleList &particles);
 
   /// Set the level of debug printout
   void set_debug_printout(int a) { debug_printout_ = a; }
   /// Set quantum statistics
   void set_quantum_statistics(bool qs) { quantum_statistics_ = qs; }
-  /// Gives read-only access to particles
-  const SamplerParticleList &particles() const { return particles_; }
   void print_rejection_stats();
 
 private:
@@ -74,11 +74,13 @@ private:
   double compute_spin_factor(const SamplerParticleList &in,
                              const SamplerParticleList &out);
 
-  void random_two_to_three(const HyperSurfacePatch &hypersurface);
-  void random_three_to_two(const HyperSurfacePatch &hypersurface);
-  void renormalize_momenta(const smash::FourVector &required_4mom);
+  void random_two_to_three(const HyperSurfacePatch &hypersurface,
+                           SamplerParticleList &particles);
+  void random_three_to_two(const HyperSurfacePatch &hypersurface,
+                           SamplerParticleList &particles);
+  void renormalize_momenta(const smash::FourVector &required_4mom,
+                           SamplerParticleList &particles);
 
-  SamplerParticleList particles_;
   std::vector<smash::ParticleTypePtr> sampled_types_;
   /** All possible combinations of 3 particle species with given quantum
    *  numbers B, S, Q defined by the key std::array<int,3>. The key maps
