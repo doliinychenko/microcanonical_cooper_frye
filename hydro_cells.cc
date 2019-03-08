@@ -10,7 +10,7 @@ HyperSurfacePatch::HyperSurfacePatch(
     const std::string &input_file, InputFormat read_in_format,
     const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
     bool quantum_statistics)
-    : read_in_format_(read_in_format), quantum_statistics_(quantum_statistics),
+    : quantum_statistics_(quantum_statistics),
       quantum_series_max_terms_(100), quantum_series_rel_precision_(1e-12) {
   for (const smash::ParticleType &ptype : smash::ParticleType::list_all()) {
     if (is_sampled(&ptype)) {
@@ -19,7 +19,7 @@ HyperSurfacePatch::HyperSurfacePatch(
   }
 
   cells_.clear();
-  switch (read_in_format_) {
+  switch (read_in_format) {
   case InputFormat::MUSIC_ASCII_3plus1D:
     read_from_MUSIC_file(input_file);
     break;

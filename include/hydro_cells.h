@@ -58,9 +58,10 @@ public:
   size_t Ncells() const { return cells_.size(); }
 
 private:
+  /// Read in cells from file of MUSIC format
   void read_from_MUSIC_file(const std::string &filename);
 
-  /// Read out cells from file
+  /// Read in cells from file
   void read_from_file(const std::string &filename);
 
   /// Compute total 4-momentum, baryon number, strangeness, and charge
@@ -71,7 +72,6 @@ private:
   smash::FourVector pmu_tot_;
   double B_tot_nonint_, S_tot_nonint_, Q_tot_nonint_;
   int B_tot_, S_tot_, Q_tot_;
-  InputFormat read_in_format_;
   bool quantum_statistics_;
   /// Maximal number of terms in the series for quantum formulas
   const unsigned int quantum_series_max_terms_;
