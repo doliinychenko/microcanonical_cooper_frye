@@ -28,7 +28,7 @@ int type_count(const MicrocanonicalSampler::SamplerParticleList &particles,
 
 // Decides, which species are going to be sampled
 bool is_sampled_type(const smash::ParticleTypePtr t) {
-  return t->is_hadron() && t->mass() < 2.5;
+  return t->is_hadron() && t->mass() < 1.5;
 }
 
 void sample(std::string hypersurface_input_file,
@@ -42,7 +42,7 @@ void sample(std::string hypersurface_input_file,
   std::cout << "Full hypersurface: " << hyper << std::endl;
   MicrocanonicalSampler sampler(is_sampled_type, 0, quantum_statistics);
 
-  constexpr size_t number_of_patches = 1;
+  constexpr size_t number_of_patches = 3;
   auto patches = hyper.split(number_of_patches);
 
   std::vector<MicrocanonicalSampler::SamplerParticleList> particles;
@@ -126,6 +126,9 @@ int main() {
   }
 
   const int N_warmup = 1E6, N_decorrelate = 2E2, N_printout = 1E5;
-  sample("../hydro_cells.dat", HyperSurfacePatch::InputFormat::DimaNaiveFormat,
+  //sample("../hydro_cells.dat", HyperSurfacePatch::InputFormat::DimaNaiveFormat,
+  //       printout_types, N_warmup, N_decorrelate, N_printout);
+  sample("../../hyper_from_Jan/hypersurface/spinodal_hyper_pbpb_elb3.5_39-2.f16",
+         HyperSurfacePatch::InputFormat::Steinheimer,
          printout_types, N_warmup, N_decorrelate, N_printout);
 }

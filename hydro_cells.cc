@@ -23,6 +23,9 @@ HyperSurfacePatch::HyperSurfacePatch(
   case InputFormat::MUSIC_ASCII_3plus1D:
     read_from_MUSIC_file(input_file);
     break;
+  case InputFormat::Steinheimer:
+    read_from_Steinheimer_file(input_file);
+    break;
   case InputFormat::DimaNaiveFormat:
     read_from_file(input_file);
     break;
@@ -102,6 +105,44 @@ void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
             << std::endl;
 }
 
+void HyperSurfacePatch::read_from_Steinheimer_file(const std::string &fname) {
+  std::ifstream infile(fname);
+  if (!infile.good()) {
+    throw std::runtime_error("Could not open file");
+  }
+  std::cout << "Reading cells from file " << fname << std::endl;
+  std::string line;
+  size_t line_counter = 0;
+  while (std::getline(infile, line)) {
+    line_counter++;
+    std::istringstream iss(line);
+    double t, x, y, z, T, muB, muS, muQ, vx, vy, vz, ds0, ds1, ds2, ds3;
+    // clang-format off
+    if (!(iss >> x >> y >> z
+              >> T >> muB >> muS
+              >> vx >> vy >> vz
+              >> ds0 >> ds1 >> ds2 >> ds3)) {
+      break;
+    }
+    // clang-format on
+    const double gamma = 1.0 / std::sqrt(vx * vx + vy * vy + vz * vz);
+    smash::FourVector u(1, vx, vy, vz), ds{ds0, ds1, ds2, ds3};
+    u *= gamma;
+    if (ds.sqr() < 0) {
+      std::cout << "dsigma^2 < 0, dsigma = " << ds
+                << ", T = " << T << ", muB = " << muB << ", cell "
+                << line_counter << std::endl;
+    }
+    assert(T >= 0.0);
+    muQ = 0.0;
+    t = 0.0;
+    cells_.push_back({{t, x, y, z}, ds, u, T, muB, muS, muQ});
+    if (line_counter % 100000 == 0) {
+      std::cout << "Cell " << line_counter << std::endl;
+    }
+  }
+}
+
 void HyperSurfacePatch::read_from_file(const std::string &filename) {
   cells_.clear();
   std::ifstream infile(filename);
@@ -133,11 +174,12 @@ void HyperSurfacePatch::compute_totals() {
   S_tot_nonint_ = 0.0;
   Q_tot_nonint_ = 0.0;
   pmu_tot_ = smash::FourVector();
-
+  std::cout << "Computing total quantitites at hypersurface " << std::endl;
   const double hbarc = smash::hbarc;
   const double factor = 1.0 / (2.0 * M_PI * M_PI * hbarc * hbarc * hbarc);
   for (const smash::ParticleTypePtr t : sampled_types_) {
     const double m = t->mass();
+    std::cout << t->name() << std::endl;
     for (const hydro_cell &cell : cells_) {
       const double mu = cell.muB * t->baryon_number() +
                         cell.muS * t->strangeness() + cell.muQ * t->charge();

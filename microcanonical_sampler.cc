@@ -19,6 +19,7 @@ MicrocanonicalSampler::MicrocanonicalSampler(
     const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
     int debug_printout, bool quantum_statistics)
     : debug_printout_(debug_printout), quantum_statistics_(quantum_statistics) {
+  std::cout << "Initializing the sampler" << std::endl;
   // Initialize sampled types
   if (debug_printout_) {
     std::cout << "Initializing sampled types..." << std::endl;
