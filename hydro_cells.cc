@@ -43,7 +43,19 @@ HyperSurfacePatch::HyperSurfacePatch(const HyperSurfacePatch &big_patch,
   for (size_t i : subpatch_indices) {
     cells_.push_back(big_patch.cell(i));
   }
-  compute_totals();
+  B_tot_nonint_ = 0.0;
+  S_tot_nonint_ = 0.0;
+  Q_tot_nonint_ = 0.0;
+  pmu_tot_ = smash::FourVector();
+  for (hydro_cell &cell : cells_) {
+    pmu_tot_ += cell.pmu;
+    B_tot_nonint_ += cell.B;
+    S_tot_nonint_ += cell.S;
+    Q_tot_nonint_ += cell.Q;
+  }
+  B_tot_ = static_cast<int>(std::round(B_tot_nonint_));
+  S_tot_ = static_cast<int>(std::round(S_tot_nonint_));
+  Q_tot_ = static_cast<int>(std::round(Q_tot_nonint_));
 }
 
 void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
@@ -99,7 +111,8 @@ void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
                 << ", T = " << T << ", muB = " << muB << ", cell "
                 << line_counter << std::endl;
     }
-    cells_.push_back({{t, x, y, z}, ds, u, T, muB, muS, muQ});
+    cells_.push_back({{t, x, y, z}, ds, u, {0.0, 0.0, 0.0, 0.0},
+                      T, muB, muS, muQ, 0.0, 0.0, 0.0});
   }
   std::cout << cells_.size() << " cells read from the file " << filename
             << std::endl;
@@ -136,7 +149,8 @@ void HyperSurfacePatch::read_from_Steinheimer_file(const std::string &fname) {
     assert(T >= 0.0);
     muQ = 0.0;
     t = 0.0;
-    cells_.push_back({{t, x, y, z}, ds, u, T, muB, muS, muQ});
+    cells_.push_back({{t, x, y, z}, ds, u, {0.0, 0.0, 0.0, 0.0},
+                     T, muB, muS, muQ, 0.0, 0.0, 0.0});
     if (line_counter % 100000 == 0) {
       std::cout << "Cell " << line_counter << std::endl;
     }
@@ -165,28 +179,32 @@ void HyperSurfacePatch::read_from_file(const std::string &filename) {
     smash::FourVector u(1.0, v1, v2, v3);
     u *= gamma;
     assert(std::abs(u.abs() - 1.0) < 1.e-15);
-    cells_.push_back({{0, 0, 0, 0}, {ds0, ds1, ds2, ds3}, u, T, muB, muS, muQ});
+    cells_.push_back({{0, 0, 0, 0}, {ds0, ds1, ds2, ds3}, u,
+                      {0.0, 0.0, 0.0, 0.0}, T, muB, muS, muQ, 0.0, 0.0, 0.0});
   }
 }
 
 void HyperSurfacePatch::compute_totals() {
-  B_tot_nonint_ = 0.0;
-  S_tot_nonint_ = 0.0;
-  Q_tot_nonint_ = 0.0;
-  pmu_tot_ = smash::FourVector();
-  std::cout << "Computing total quantitites at hypersurface " << std::endl;
+  std::cout << "Computing 4-momentum and charges in cells" << std::endl;
   const double hbarc = smash::hbarc;
   const double factor = 1.0 / (2.0 * M_PI * M_PI * hbarc * hbarc * hbarc);
-  for (const smash::ParticleTypePtr t : sampled_types_) {
-    const double m = t->mass();
-    std::cout << t->name() << std::endl;
-    for (const hydro_cell &cell : cells_) {
+  unsigned int cell_counter = 0;
+  for (hydro_cell &cell : cells_) {
+    if ((++cell_counter) % 100000 == 0) {
+      std::cout << "Cell " << cell_counter << std::endl;
+    }
+    cell.pmu = smash::FourVector();
+    cell.B = 0.0;
+    cell.S = 0.0;
+    cell.Q = 0.0;
+    const double T = cell.T;
+    for (const smash::ParticleTypePtr t : sampled_types_) {
+      const double m = t->mass();
       const double mu = cell.muB * t->baryon_number() +
                         cell.muS * t->strangeness() + cell.muQ * t->charge();
       // dsigma in the frame, where umu = (1, 0, 0, 0)
       // dsigma[0] in this frame should be equal to dsigma_mu u^mu in any frame
       smash::FourVector dsigma = cell.dsigma.LorentzBoost(cell.u.velocity());
-      const double T = cell.T;
       const double z = m / T;
       double mu_m_over_T = (mu - m) / T;
       if (mu_m_over_T > 0 and quantum_statistics_) {
@@ -226,19 +244,34 @@ void HyperSurfacePatch::compute_totals() {
         x3 += x3_summand;
       }
 
-      const double number_from_cell = T * T * T * x1 * dsigma.x0() *
-                                      t->pdgcode().spin_degeneracy() * factor;
-      B_tot_nonint_ += t->baryon_number() * number_from_cell;
-      S_tot_nonint_ += t->strangeness() * number_from_cell;
-      Q_tot_nonint_ += t->charge() * number_from_cell;
+      const double number_from_cell = x1 * dsigma.x0() *
+                                      t->pdgcode().spin_degeneracy();
+      cell.B += t->baryon_number() * number_from_cell;
+      cell.S += t->strangeness() * number_from_cell;
+      cell.Q += t->charge() * number_from_cell;
       smash::FourVector pmu_cell(dsigma.x0() * x2, -dsigma.x1() * x3,
                                  -dsigma.x2() * x3, -dsigma.x3() * x3);
-      pmu_cell *= T * T * T * T * t->pdgcode().spin_degeneracy() * factor;
+      pmu_cell *= t->pdgcode().spin_degeneracy();
       pmu_cell = pmu_cell.LorentzBoost(-cell.u.velocity());
-      pmu_tot_ += pmu_cell;
+      cell.pmu += pmu_cell;
       // std::cout << t.name() << " number: " << number_from_cell << std::endl;
       // std::cout << t.name() << ": " << pmu_cell << std::endl;
     }
+    const double a = T * T * T * factor;
+    cell.pmu *= T * a;
+    cell.B *= a;
+    cell.S *= a;
+    cell.Q *= a;
+  }
+  B_tot_nonint_ = 0.0;
+  S_tot_nonint_ = 0.0;
+  Q_tot_nonint_ = 0.0;
+  pmu_tot_ = smash::FourVector();
+  for (hydro_cell &cell : cells_) {
+    pmu_tot_ += cell.pmu;
+    B_tot_nonint_ += cell.B;
+    S_tot_nonint_ += cell.S;
+    Q_tot_nonint_ += cell.Q;
   }
   B_tot_ = static_cast<int>(std::round(B_tot_nonint_));
   S_tot_ = static_cast<int>(std::round(S_tot_nonint_));

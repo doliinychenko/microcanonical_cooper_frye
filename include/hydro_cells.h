@@ -17,10 +17,14 @@ public:
     smash::FourVector r;
     smash::FourVector dsigma;
     smash::FourVector u;
+    smash::FourVector pmu;
     double T;
     double muB;
     double muS;
     double muQ;
+    double B;
+    double S;
+    double Q;
   };
 
   /**

@@ -28,7 +28,7 @@ int type_count(const MicrocanonicalSampler::SamplerParticleList &particles,
 
 // Decides, which species are going to be sampled
 bool is_sampled_type(const smash::ParticleTypePtr t) {
-  return t->is_hadron() && t->mass() < 1.5;
+  return t->is_hadron() && t->mass() < 2.5;
 }
 
 void sample(std::string hypersurface_input_file,
