@@ -170,11 +170,95 @@ MicrocanonicalSampler::MicrocanonicalSampler(
 
 void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface,
                                        SamplerParticleList &particles) {
+  // Find lightest types with every combination of quantum numbers
+  std::map<std::array<int,3>, smash::ParticleTypePtr> lightest_species_BSQ;
+  for (smash::ParticleTypePtr t : sampled_types_) {
+    std::array<int,3> BSQ {t->baryon_number(), t->strangeness(), t->charge()};
+    if (lightest_species_BSQ.find(BSQ) == lightest_species_BSQ.end() ||
+        lightest_species_BSQ[BSQ]->mass() > t->mass()) {
+      lightest_species_BSQ[BSQ] = t;
+    }
+  }
+
+  int B = hypersurface.B(), S = hypersurface.S(), Q = hypersurface.Q();
+  std::array<int,3> neutral_meson_BSQ{0, 0, 0};
+  if (lightest_species_BSQ.find(neutral_meson_BSQ) !=
+      lightest_species_BSQ.end()) {
+    std::runtime_error("The sampling method requires"
+        " presence of a neutral non-strange meson in the species list.");
+  }
+  std::map<smash::ParticleTypePtr, size_t> specie_quantity;
+  /* Apply heuristics to fill the required quantum numbers with possibly lower
+   * total energy. This heuristics is not guaranteed to work in general case,
+   * but it seems to be fine for a real list of hadronic species.
+   */
+  while (B || S || Q) {
+    int signB = (B > 0) - (B < 0),
+        signS = (S > 0) - (S < 0),
+        signQ = (Q > 0) - (Q < 0);
+    std::vector<std::array<int,3>> BSQ_to_try = {{signB, signS, signQ},
+     {signB, signS, 0}, {signB, 0, signQ}, {0, signS, signQ},
+     {signB, 0, 0}, {0, signS, 0}, {0, 0, signQ}};
+    smash::ParticleTypePtr t_minimizing =
+        lightest_species_BSQ[neutral_meson_BSQ];
+    for (const auto BSQ : BSQ_to_try) {
+      if (lightest_species_BSQ.find(BSQ) != lightest_species_BSQ.end()) {
+        t_minimizing = lightest_species_BSQ[BSQ];
+        break;
+      }
+    }
+    if (t_minimizing == lightest_species_BSQ[neutral_meson_BSQ]) {
+      std::runtime_error("Initialization heuristics failed."
+          " Can't combine given species to obtain required quantum numbers.");
+    }
+    int Bi = t_minimizing->baryon_number(),
+        Si = t_minimizing->strangeness(),
+        Qi = t_minimizing->charge();
+    int mult = (Bi != 0) ? B / Bi : 0;
+    mult = (Si != 0) ? std::min(mult, S / Si) : mult;
+    mult = (Qi != 0) ? std::min(mult, Q / Qi) : mult;
+    B -= Bi * mult;
+    S -= Si * mult;
+    Q -= Qi * mult;
+    specie_quantity[t_minimizing] = mult;
+    std::cout << t_minimizing->name() << ": " << mult << ", updated BSQ: "
+              << B << " " << S << " " << Q << std::endl;
+  }
+  double m_sum = 0.0;
+  for (const auto x : specie_quantity) {
+    m_sum += x.first->mass() * x.second;
+  }
+  std::cout << "Sum of masses: " << m_sum << std::endl;
+  for (const auto x : specie_quantity) {
+    for (size_t i = 0; i < x.second; i++) {
+      particles.push_back({smash::FourVector(), x.first, 0});
+    }
+  }
+  if (particles.size() < 2 && hypersurface.pmu().sqr() >
+      2 * lightest_species_BSQ[neutral_meson_BSQ]->mass()) {
+    for (size_t i = 0; i < 3; i++) {
+      particles.push_back({smash::FourVector(),
+                          lightest_species_BSQ[neutral_meson_BSQ], 0});
+    }
+  }
+  if (particles.size() > 0) {
+    renormalize_momenta(hypersurface.pmu(), particles);
+    QuantumNumbers cons(particles);
+    assert(cons.B == hypersurface.B());
+    assert(cons.S == hypersurface.S());
+    assert(cons.Q == hypersurface.Q());
+  }
+
+/*
+  std::cout << "Actually assigned" << std::endl;
   particles.clear();
-  const int B = hypersurface.B(), S = hypersurface.S(), Q = hypersurface.Q();
+  B = hypersurface.B();
+  S = hypersurface.S();
+  Q = hypersurface.Q();
   smash::ParticleTypePtr baryon, antibaryon, strange_meson, antistrange_meson,
       plus_nonstrange_meson, minus_nonstrange_meson, neutral_meson;
-  for (smash::ParticleTypePtr t : sampled_types_) {
+  for (const auto x : lightest_species_BSQ) {
+    smash::ParticleTypePtr t = x.second;
     if (!baryon && t->baryon_number() > 0) {
       baryon = t;
     }
@@ -274,12 +358,29 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface,
                                 pabs * phitheta.threevec());
     part.momentum = mom;
   }
+  std::map<std::string, int> specie_counter;
+  for (const SamplerParticle &part : particles) {
+    auto key = part.type->name();
+    if (specie_counter.find(key) == specie_counter.end()) {
+      specie_counter[key] = 0;
+    }
+    specie_counter[key]++;
+  }
+  for (const auto pname : specie_counter) {
+    std::cout << pname.first << ": " << pname.second << std::endl;
+  }
   renormalize_momenta(hypersurface.pmu(), particles);
+  m_sum = 0.0;
+  for (SamplerParticle &part : particles) {
+    m_sum += part.type->mass();
+  }
+  std::cout << "Mass sum: " << m_sum << std::endl;
 
   QuantumNumbers cons(particles);
   assert(cons.B == B);
   assert(cons.S == S);
   assert(cons.Q == Q);
+*/
 }
 
 void MicrocanonicalSampler::one_markov_chain_step(
