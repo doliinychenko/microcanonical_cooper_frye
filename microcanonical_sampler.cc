@@ -666,6 +666,10 @@ void MicrocanonicalSampler::renormalize_momenta(
   QuantumNumbers conserved_final = QuantumNumbers(particles);
   std::cout << "Obtained total momentum: " << conserved_final.momentum
             << std::endl;
+  if (conserved_final.momentum.abs() > required_total_momentum.abs() + 1.e-9) {
+    throw std::runtime_error("Sum of particle masses is larger than "
+      "the required patch energy.");
+  }
 }
 
 void MicrocanonicalSampler::print_rejection_stats() {
