@@ -19,6 +19,7 @@ MicrocanonicalSampler::MicrocanonicalSampler(
     const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
     int debug_printout, bool quantum_statistics)
     : debug_printout_(debug_printout), quantum_statistics_(quantum_statistics) {
+  std::cout << "Initializing the sampler" << std::endl;
   // Initialize sampled types
   if (debug_printout_) {
     std::cout << "Initializing sampled types..." << std::endl;
@@ -169,116 +170,84 @@ MicrocanonicalSampler::MicrocanonicalSampler(
 
 void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface,
                                        SamplerParticleList &particles) {
-  particles.clear();
-  const int B = hypersurface.B(), S = hypersurface.S(), Q = hypersurface.Q();
-  smash::ParticleTypePtr baryon, antibaryon, strange_meson, antistrange_meson,
-      plus_nonstrange_meson, minus_nonstrange_meson, neutral_meson;
+  // Find lightest types with every combination of quantum numbers
+  std::map<std::array<int,3>, smash::ParticleTypePtr> lightest_species_BSQ;
   for (smash::ParticleTypePtr t : sampled_types_) {
-    if (!baryon && t->baryon_number() > 0) {
-      baryon = t;
-    }
-    if (!antibaryon && t->baryon_number() < 0) {
-      antibaryon = t;
-    }
-    if (!strange_meson && t->baryon_number() == 0 && t->strangeness() > 0) {
-      strange_meson = t;
-    }
-    if (!antistrange_meson && t->baryon_number() == 0 && t->strangeness() < 0) {
-      antistrange_meson = t;
-    }
-    if (!plus_nonstrange_meson && t->baryon_number() == 0 &&
-        t->strangeness() == 0 && t->charge() > 0) {
-      plus_nonstrange_meson = t;
-    }
-    if (!minus_nonstrange_meson && t->baryon_number() == 0 &&
-        t->strangeness() == 0 && t->charge() < 0) {
-      minus_nonstrange_meson = t;
-    }
-    if (!neutral_meson && t->baryon_number() == 0 && t->strangeness() == 0 &&
-        t->charge() == 0) {
-      neutral_meson = t;
-    }
-  }
-  int remaining_S = S, remaining_Q = Q;
-  if (B > 0) {
-    if (!baryon) {
-      std::runtime_error("B > 0 requested, but hadron sorts"
-                         " to sample do not include baryons");
-    }
-    for (int i = 0; i < B; i++) {
-      particles.push_back({smash::FourVector(), baryon, 0});
-    }
-    remaining_S -= baryon->strangeness() * B;
-    remaining_Q -= baryon->charge() * B;
-  } else if (B < 0) {
-    if (!antibaryon) {
-      std::runtime_error("B < 0 requested, but hadron sorts"
-                         " to sample do not include antibaryons");
-    }
-    for (int i = 0; i < std::abs(B); i++) {
-      particles.push_back({smash::FourVector(), antibaryon, 0});
-    }
-    remaining_S -= antibaryon->strangeness() * std::abs(B);
-    remaining_Q -= antibaryon->charge() * std::abs(B);
-  }
-  if (remaining_S > 0) {
-    if (!strange_meson) {
-      std::runtime_error("S > 0 needed, but hadron sorts"
-                         " to sample do not include mesons with S > 0");
-    }
-    for (int i = 0; i < remaining_S; i++) {
-      particles.push_back({smash::FourVector(), strange_meson, 0});
-    }
-    remaining_Q -= strange_meson->charge() * remaining_S;
-  } else if (remaining_S < 0) {
-    if (!antistrange_meson) {
-      std::runtime_error("S < 0 needed, but hadron sorts"
-                         " to sample do not include mesons with S < 0");
-    }
-    for (int i = 0; i < std::abs(remaining_S); i++) {
-      particles.push_back({smash::FourVector(), antistrange_meson, 0});
-    }
-    remaining_Q -= antistrange_meson->charge() * std::abs(remaining_S);
-  }
-  if (remaining_Q > 0) {
-    if (!plus_nonstrange_meson) {
-      std::runtime_error("Q > 0 needed, but hadron sorts to sample"
-                         " do not include nonstrange mesons with Q > 0");
-    }
-    for (int i = 0; i < remaining_Q; i++) {
-      particles.push_back({smash::FourVector(), plus_nonstrange_meson, 0});
-    }
-  } else if (remaining_Q < 0) {
-    if (!minus_nonstrange_meson) {
-      std::runtime_error("Q < 0 needed, but hadron sorts to sample"
-                         " do not include nonstrange mesons with Q < 0");
-    }
-    for (int i = 0; i < std::abs(remaining_Q); i++) {
-      particles.push_back({smash::FourVector(), minus_nonstrange_meson, 0});
-    }
-  }
-  if (neutral_meson) {
-    for (int i = 0; i < 10; i++) {
-      particles.push_back({smash::FourVector(), neutral_meson, 0});
+    std::array<int,3> BSQ {t->baryon_number(), t->strangeness(), t->charge()};
+    if (lightest_species_BSQ.find(BSQ) == lightest_species_BSQ.end() ||
+        lightest_species_BSQ[BSQ]->mass() > t->mass()) {
+      lightest_species_BSQ[BSQ] = t;
     }
   }
 
-  // Assign some random momenta
-  for (SamplerParticle &part : particles) {
-    const double m = part.type->mass();
-    const double pabs = 0.1;
-    smash::Angles phitheta;
-    phitheta.distribute_isotropically();
-    const smash::FourVector mom(std::sqrt(m * m + pabs * pabs),
-                                pabs * phitheta.threevec());
-    part.momentum = mom;
+  int B = hypersurface.B(), S = hypersurface.S(), Q = hypersurface.Q();
+  std::array<int,3> neutral_meson_BSQ{0, 0, 0};
+  if (lightest_species_BSQ.find(neutral_meson_BSQ) !=
+      lightest_species_BSQ.end()) {
+    std::runtime_error("The sampling method requires"
+        " presence of a neutral non-strange meson in the species list.");
   }
-  renormalize_momenta(hypersurface.pmu(), particles);
-
-  QuantumNumbers cons(particles);
-  assert(cons.B == B);
-  assert(cons.S == S);
-  assert(cons.Q == Q);
+  std::map<smash::ParticleTypePtr, size_t> specie_quantity;
+  /* Apply heuristics to fill the required quantum numbers with possibly lower
+   * total energy. This heuristics is not guaranteed to work in general case,
+   * but it seems to be fine for a real list of hadronic species.
+   */
+  while (B || S || Q) {
+    int signB = (B > 0) - (B < 0),
+        signS = (S > 0) - (S < 0),
+        signQ = (Q > 0) - (Q < 0);
+    std::vector<std::array<int,3>> BSQ_to_try = {{signB, signS, signQ},
+     {signB, signS, 0}, {signB, 0, signQ}, {0, signS, signQ},
+     {signB, 0, 0}, {0, signS, 0}, {0, 0, signQ}};
+    smash::ParticleTypePtr t_minimizing =
+        lightest_species_BSQ[neutral_meson_BSQ];
+    for (const auto BSQ : BSQ_to_try) {
+      if (lightest_species_BSQ.find(BSQ) != lightest_species_BSQ.end()) {
+        t_minimizing = lightest_species_BSQ[BSQ];
+        break;
+      }
+    }
+    if (t_minimizing == lightest_species_BSQ[neutral_meson_BSQ]) {
+      std::runtime_error("Initialization heuristics failed."
+          " Can't combine given species to obtain required quantum numbers.");
+    }
+    int Bi = t_minimizing->baryon_number(),
+        Si = t_minimizing->strangeness(),
+        Qi = t_minimizing->charge();
+    int mult = (Bi != 0) ? B / Bi : 0;
+    mult = (Si != 0) ? std::min(mult, S / Si) : mult;
+    mult = (Qi != 0) ? std::min(mult, Q / Qi) : mult;
+    B -= Bi * mult;
+    S -= Si * mult;
+    Q -= Qi * mult;
+    specie_quantity[t_minimizing] = mult;
+    std::cout << t_minimizing->name() << ": " << mult << ", updated BSQ: "
+              << B << " " << S << " " << Q << std::endl;
+  }
+  double m_sum = 0.0;
+  for (const auto x : specie_quantity) {
+    m_sum += x.first->mass() * x.second;
+  }
+  std::cout << "Sum of masses: " << m_sum << std::endl;
+  for (const auto x : specie_quantity) {
+    for (size_t i = 0; i < x.second; i++) {
+      particles.push_back({smash::FourVector(), x.first, 0});
+    }
+  }
+  if (particles.size() < 2 && hypersurface.pmu().sqr() >
+      2 * lightest_species_BSQ[neutral_meson_BSQ]->mass()) {
+    for (size_t i = 0; i < 3; i++) {
+      particles.push_back({smash::FourVector(),
+                          lightest_species_BSQ[neutral_meson_BSQ], 0});
+    }
+  }
+  if (particles.size() > 0) {
+    renormalize_momenta(hypersurface.pmu(), particles);
+    QuantumNumbers cons(particles);
+    assert(cons.B == hypersurface.B());
+    assert(cons.S == hypersurface.S());
+    assert(cons.Q == hypersurface.Q());
+  }
 }
 
 void MicrocanonicalSampler::one_markov_chain_step(
@@ -697,6 +666,10 @@ void MicrocanonicalSampler::renormalize_momenta(
   QuantumNumbers conserved_final = QuantumNumbers(particles);
   std::cout << "Obtained total momentum: " << conserved_final.momentum
             << std::endl;
+  if (conserved_final.momentum.abs() > required_total_momentum.abs() + 1.e-9) {
+    throw std::runtime_error("Sum of particle masses is larger than "
+      "the required patch energy.");
+  }
 }
 
 void MicrocanonicalSampler::print_rejection_stats() {
