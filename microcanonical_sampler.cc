@@ -241,6 +241,17 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface,
                           lightest_species_BSQ[neutral_meson_BSQ], 0});
     }
   }
+  // Assign some random momenta
+  for (SamplerParticle &part : particles) {
+    const double m = part.type->mass();
+    const double pabs = 0.01;
+    smash::Angles phitheta;
+    phitheta.distribute_isotropically();
+    const smash::FourVector mom(std::sqrt(m * m + pabs * pabs),
+                                pabs * phitheta.threevec());
+    part.momentum = mom;
+  }
+
   if (particles.size() > 0) {
     renormalize_momenta(hypersurface.pmu(), particles);
     QuantumNumbers cons(particles);
