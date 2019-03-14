@@ -390,7 +390,7 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split2(double E_patch_max) {
       tmp = (b.muB - max_energy_cell.muB);
       db2 += tmp * tmp * inv_dmuB_sqr;
 
-      return da2 > db2;
+      return da2 < db2;
     });
 
     // (3) Collect cells to patch until energy is enough or no cells left
