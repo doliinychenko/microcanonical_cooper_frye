@@ -43,6 +43,21 @@ HyperSurfacePatch::HyperSurfacePatch(const HyperSurfacePatch &big_patch,
   for (size_t i : subpatch_indices) {
     cells_.push_back(big_patch.cell(i));
   }
+  sum_up_totals_from_cells();
+}
+
+HyperSurfacePatch::HyperSurfacePatch(const HyperSurfacePatch &big_patch,
+   std::vector<hydro_cell>::iterator patch_begin,
+   std::vector<hydro_cell>::iterator patch_end) {
+  quantum_statistics_ = big_patch.quantum_statistics();
+  sampled_types_ = big_patch.sampled_types();
+  cells_.clear();
+  cells_.resize(std::distance(patch_begin, patch_end));
+  std::copy(patch_begin, patch_end, cells_.begin());
+  sum_up_totals_from_cells();
+}
+
+void HyperSurfacePatch::sum_up_totals_from_cells() {
   B_tot_nonint_ = 0.0;
   S_tot_nonint_ = 0.0;
   Q_tot_nonint_ = 0.0;
@@ -57,6 +72,7 @@ HyperSurfacePatch::HyperSurfacePatch(const HyperSurfacePatch &big_patch,
   S_tot_ = static_cast<int>(std::round(S_tot_nonint_));
   Q_tot_ = static_cast<int>(std::round(Q_tot_nonint_));
 }
+
 
 void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
   std::ifstream infile(filename);
@@ -297,6 +313,97 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(size_t n_patches) {
   for (size_t i_patch = 0; i_patch < n_patches; i_patch++) {
     patches.push_back(HyperSurfacePatch(*this, cell_indices[i_patch]));
     std::cout << "Patch " << i_patch << ". " << patches.back() << std::endl;
+  }
+  return patches;
+}
+
+std::vector<HyperSurfacePatch> HyperSurfacePatch::split2(double E_patch_max) {
+  // Compute variances of temperature and muB on the hypersurface
+  // They are needed for clustering metric
+  double mean_T = 0.0, mean_muB = 0.0,
+         mean_T_sqr = 0.0, mean_muB_sqr = 0.0;
+  for (const HyperSurfacePatch::hydro_cell &cell : cells_) {
+    mean_T += cell.T;
+    mean_muB += cell.muB;
+    mean_T_sqr += cell.T * cell.T;
+    mean_muB_sqr += cell.muB * cell.muB;
+  }
+  mean_T /= Ncells();
+  mean_muB /= Ncells();
+  mean_T_sqr /= Ncells();
+  mean_muB_sqr /= Ncells();
+  const double mean_dT_sqr = mean_T_sqr - mean_T * mean_T,
+               mean_dmuB_sqr = mean_muB_sqr - mean_muB * mean_muB;
+  double inv_dT_sqr = (mean_dT_sqr < 1.e-3) ? 0.0 : 1.0 / mean_dT_sqr,
+         inv_dmuB_sqr = (mean_dmuB_sqr < 1.e-3) ? 0.0 : 1.0 / mean_dmuB_sqr;
+  std::cout << "Hypersurface temperature: " << mean_T << "±"
+            << std::sqrt(mean_dT_sqr) << "  GeV." << std::endl;;
+  std::cout << "Hypersurface baryochemical potential: " << mean_muB << "±"
+            << std::sqrt(mean_dmuB_sqr) << "  GeV." << std::endl;
+  /**
+   * My home-made patch splitting algorithm:
+   * 1) Start from the non-clustered cell with largest energy
+   * 2) Sort cells by distance d^2 =
+   *       (dx^2 + dy^2 + dz^2)/d0^2 + dT^2/sigT^2 + dmuB^2/sigmuB^2),
+   *       where d0 [fm] is a heuristically defined constant.
+   * 3) Pick up next cells to the patch until total energy is more than E_patch
+   *    or no cells left. Then start over from 1).
+   *
+   * Main advantage of this algorithm is that one gets patches of similar total
+   * energy, while the variation of temperature and muB is not too large within
+   * a patch.
+   */
+  std::vector<HyperSurfacePatch> patches;
+  std::vector<hydro_cell>::iterator nonclustered_begin = cells_.begin();
+  size_t patch_counter = 0;
+  while (nonclustered_begin != cells_.end()) {
+    // (1) Find cell with maximum energy from non-clustered cells
+    hydro_cell* max_energy_cell_ref = &(*nonclustered_begin);
+    double maximum_energy = 0.0;
+    for (auto it = nonclustered_begin; it < cells_.end(); it++) {
+      if (it->pmu.x0() > maximum_energy) {
+        maximum_energy = it->pmu.x0();
+        max_energy_cell_ref = &(*it);
+      }
+    }
+    // Now copy the cell, because soon the cells_ vector will be sorted
+    // and references will mix up.
+    hydro_cell max_energy_cell = *max_energy_cell_ref;
+    std::cout << "Max energy at cell with T [GeV] = " << max_energy_cell.T
+              << ", muB [GeV] = " << max_energy_cell.muB
+              << ", dsigma = " << max_energy_cell.dsigma << std::endl;
+
+    // (2) Sort non-clustered cells from smallest to largest d^2
+    constexpr double d0 = 2.0;  // fm
+    constexpr double inv_d0_sqr = 1.0 / (d0 * d0);
+    std::sort(nonclustered_begin, cells_.end(),
+              [&](const hydro_cell& a, const hydro_cell& b) {
+      double da2 = (a.r - max_energy_cell.r).sqr() * inv_d0_sqr;
+      double tmp = (a.T - max_energy_cell.T);
+      da2 += tmp * tmp * inv_dT_sqr;
+      tmp = (a.muB - max_energy_cell.muB);
+      da2 += tmp * tmp * inv_dmuB_sqr;
+
+      double db2 = (b.r - max_energy_cell.r).sqr() * inv_d0_sqr;
+      tmp = (b.T - max_energy_cell.T);
+      db2 += tmp * tmp * inv_dT_sqr;
+      tmp = (b.muB - max_energy_cell.muB);
+      db2 += tmp * tmp * inv_dmuB_sqr;
+
+      return da2 > db2;
+    });
+
+    // (3) Collect cells to patch until energy is enough or no cells left
+    double energy_patch = 0.0;
+    std::vector<hydro_cell>::iterator cluster_start = nonclustered_begin;
+    while (energy_patch < E_patch_max && nonclustered_begin != cells_.end()) {
+      energy_patch += nonclustered_begin->pmu.x0();
+      std::advance(nonclustered_begin, 1);
+    }
+    std::cout << std::distance(cluster_start, nonclustered_begin) << " cells in patch " << patch_counter + 1 << std::endl;
+    patches.push_back(HyperSurfacePatch(*this, cluster_start, nonclustered_begin));
+    patch_counter++;
+    std::cout << "Patch " << patch_counter << ". " << patches.back() << std::endl;
   }
   return patches;
 }

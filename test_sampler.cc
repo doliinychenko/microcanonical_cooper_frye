@@ -42,8 +42,10 @@ void sample(std::string hypersurface_input_file,
   std::cout << "Full hypersurface: " << hyper << std::endl;
   MicrocanonicalSampler sampler(is_sampled_type, 0, quantum_statistics);
 
-  constexpr size_t number_of_patches = 3;
-  auto patches = hyper.split(number_of_patches);
+  // constexpr size_t number_of_patches = 3;
+  constexpr double E_patch = 5.0;  // GeV
+  auto patches = hyper.split2(E_patch);
+  size_t number_of_patches = patches.size();
 
   std::vector<MicrocanonicalSampler::SamplerParticleList> particles;
   particles.resize(number_of_patches);
@@ -128,7 +130,7 @@ int main() {
   const int N_warmup = 1E6, N_decorrelate = 2E2, N_printout = 1E5;
   sample("../hydro_cells.dat", HyperSurfacePatch::InputFormat::DimaNaiveFormat,
          printout_types, N_warmup, N_decorrelate, N_printout);
-  // sample("../../hyper_from_Jan/hypersurface/spinodal_hyper_pbpb_elb3.5_39-2.f16",
+  //sample("../../hyper_from_Jan/hypersurface/spinodal_hyper_pbpb_elb3.5_39-2.f16",
   //       HyperSurfacePatch::InputFormat::Steinheimer,
   //       printout_types, N_warmup, N_decorrelate, N_printout);
 }

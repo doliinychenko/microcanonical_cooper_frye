@@ -56,9 +56,13 @@ public:
    */
   HyperSurfacePatch(const HyperSurfacePatch &big_patch,
                     const std::vector<size_t> subpatch_indices);
-
+  HyperSurfacePatch(const HyperSurfacePatch &big_patch,
+                    std::vector<hydro_cell>::iterator patch_begin,
+                    std::vector<hydro_cell>::iterator patch_end);
   /// Split into n patches, return patches
   std::vector<HyperSurfacePatch> split(size_t n);
+  /// Split into patches with roughly equal energies
+  std::vector<HyperSurfacePatch> split2(double E_patch);
 
   int B() const { return B_tot_; }
   int S() const { return S_tot_; }
@@ -84,6 +88,9 @@ private:
 
   /// Compute total 4-momentum, baryon number, strangeness, and charge
   void compute_totals();
+
+  /// Assuming that the quantities in cells are already computed, sum them up
+  void sum_up_totals_from_cells();
 
   std::vector<hydro_cell> cells_;
   std::vector<smash::ParticleTypePtr> sampled_types_;
