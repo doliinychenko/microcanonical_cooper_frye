@@ -410,7 +410,27 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split2(double E_patch_max) {
       energy_patch += nonclustered_begin->pmu.x0();
       std::advance(nonclustered_begin, 1);
     }
-    std::cout << std::distance(cluster_start, nonclustered_begin) << " cells in patch " << patch_counter + 1 << std::endl;
+/*
+    double dmax = 0.0;
+    for (auto it = cluster_start; it < nonclustered_begin; it++) {
+      const double d = (it->r.threevec() - max_energy_cell.r.threevec()).abs();
+      if (d > dmax) {
+        dmax = d;
+      }
+    }
+    // Emergency printout
+    if (patch_counter == 0) {
+      for (auto it = cluster_start; it < nonclustered_begin; it++) {
+        const auto vel = it->u.velocity();
+        std::cout << it->r.x1() << " " << it->r.x2() << " " << it->r.x3() << " "
+              << it->T << " " << it->muB << " " << it->muS << " "
+              << vel.x1() << " " << vel.x2() << " " << vel.x3() << " "
+              << it->dsigma.x0() << " " << it->dsigma.x1() << " "
+              << it->dsigma.x2() << " " << it->dsigma.x3() << std::endl;
+      }
+    }
+    std::cout << "Max geometrical distance to cluster center [fm]: " << dmax << std::endl;
+*/
     patches.push_back(HyperSurfacePatch(*this, cluster_start, nonclustered_begin));
     patch_counter++;
     std::cout << "Patch " << patch_counter << ". " << patches.back() << std::endl;
