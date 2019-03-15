@@ -371,20 +371,22 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split2(double E_patch_max) {
     hydro_cell max_energy_cell = *max_energy_cell_ref;
     std::cout << "Max energy at cell with T [GeV] = " << max_energy_cell.T
               << ", muB [GeV] = " << max_energy_cell.muB
-              << ", dsigma = " << max_energy_cell.dsigma << std::endl;
+              << ", r = " << max_energy_cell.r << std::endl;
 
     // (2) Sort non-clustered cells from smallest to largest d^2
     constexpr double d0 = 2.0;  // fm
     constexpr double inv_d0_sqr = 1.0 / (d0 * d0);
     std::sort(nonclustered_begin, cells_.end(),
               [&](const hydro_cell& a, const hydro_cell& b) {
-      double da2 = (a.r - max_energy_cell.r).sqr() * inv_d0_sqr;
+      double da2 = (a.r.threevec() - max_energy_cell.r.threevec()).sqr();
+      da2 *= inv_d0_sqr;
       double tmp = (a.T - max_energy_cell.T);
       da2 += tmp * tmp * inv_dT_sqr;
       tmp = (a.muB - max_energy_cell.muB);
       da2 += tmp * tmp * inv_dmuB_sqr;
 
-      double db2 = (b.r - max_energy_cell.r).sqr() * inv_d0_sqr;
+      double db2 = (b.r.threevec() - max_energy_cell.r.threevec()).sqr();
+      db2 *= inv_d0_sqr;
       tmp = (b.T - max_energy_cell.T);
       db2 += tmp * tmp * inv_dT_sqr;
       tmp = (b.muB - max_energy_cell.muB);
