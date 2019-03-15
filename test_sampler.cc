@@ -82,7 +82,7 @@ void sample(std::string hypersurface_input_file,
   }
 
   MicrocanonicalSampler::QuantumNumbers cons(particles);
-  assert((cons.momentum - hyper.pmu()).abs() < 1.e-6);
+  assert((cons.momentum - hyper.pmu()).abs() < 1.e-5);
   assert(cons.B == hyper.B());
   assert(cons.S == hyper.S());
   assert(cons.Q == hyper.Q());
