@@ -57,6 +57,7 @@ void sample(std::string hypersurface_input_file,
 
   std::cout << "Warming up." << std::endl;
   for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+    std::cout << "Patch " << i_patch << std::endl;
     for (int i = 0; i < N_warmup; ++i) {
       sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
     }
@@ -81,21 +82,18 @@ void sample(std::string hypersurface_input_file,
       }
     }
     std::map<std::pair<ParticleTypePtr, size_t>, size_t> counter;
-    size_t total_cells_previous = 0;
     for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
       for (const auto &particle : particles[i_patch]) {
-        const std::pair<ParticleTypePtr, size_t> key(particle.type,
-                                   particle.cell_index + total_cells_previous);
+        const std::pair<ParticleTypePtr, size_t> key(particle.type, i_patch);
         if (counter.find(key) == counter.end()) {
           counter[key] = 0;
         }
         counter[key]++;
       }
-      total_cells_previous += patches[i_patch].Ncells();
     }
-    for (size_t icell = 0; icell < hyper.Ncells(); icell++) {
+    for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
       for (const ParticleTypePtr t : printout_types) {
-        const std::pair<ParticleTypePtr, size_t> key(t, icell);
+        const std::pair<ParticleTypePtr, size_t> key(t, i_patch);
         std::cout << " " << counter[key];
       }
     }
