@@ -56,6 +56,7 @@ void sample(std::string hypersurface_input_file,
   }
 
   std::cout << "Warming up." << std::endl;
+  #pragma omp parallel for
   for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
     std::cout << "Patch " << i_patch << std::endl;
     for (int i = 0; i < N_warmup; ++i) {
@@ -76,8 +77,9 @@ void sample(std::string hypersurface_input_file,
   std::cout << std::endl;
 
   for (int j = 0; j < N_printout; j++) {
-    for (int i = 0; i < N_decorrelate; ++i) {
-      for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+    #pragma omp parallel for
+    for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+      for (int i = 0; i < N_decorrelate; ++i) {
         sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
       }
     }

@@ -209,8 +209,12 @@ void HyperSurfacePatch::compute_totals() {
   const double hbarc = smash::hbarc;
   const double factor = 1.0 / (2.0 * M_PI * M_PI * hbarc * hbarc * hbarc);
   unsigned int cell_counter = 0;
-  for (hydro_cell &cell : cells_) {
-    if ((++cell_counter) % 100000 == 0) {
+  #pragma omp parallel for
+  for (auto it = cells_.begin(); it < cells_.end(); it++) {
+    hydro_cell& cell = *it;
+    #pragma omp atomic
+    ++cell_counter;
+    if (cell_counter % 100000 == 0) {
       std::cout << "Cell " << cell_counter << std::endl;
     }
     cell.pmu = smash::FourVector();
