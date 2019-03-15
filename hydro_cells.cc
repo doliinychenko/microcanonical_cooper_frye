@@ -154,13 +154,17 @@ void HyperSurfacePatch::read_from_Steinheimer_file(const std::string &fname) {
       break;
     }
     // clang-format on
-    const double gamma = 1.0 / std::sqrt(vx * vx + vy * vy + vz * vz);
+    const double gamma = 1.0 / std::sqrt(1.0 - vx * vx - vy * vy - vz * vz);
     smash::FourVector u(1, vx, vy, vz), ds{ds0, ds1, ds2, ds3};
     u *= gamma;
     if (ds.sqr() < 0) {
       std::cout << "dsigma^2 < 0, dsigma = " << ds
                 << ", T = " << T << ", muB = " << muB << ", cell "
                 << line_counter << std::endl;
+    }
+    if (std::abs(u.abs() - 1.0) > 1.e-6) {
+      std::cout << u << " norm should be 1!" << std::endl;
+      throw std::runtime_error("Wrong u^mu.");
     }
     assert(T >= 0.0);
     muQ = 0.0;
