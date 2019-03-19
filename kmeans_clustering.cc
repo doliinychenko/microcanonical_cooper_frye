@@ -65,7 +65,8 @@ void test_clustering() {
     const double gamma = 1.0 / std::sqrt(1.0 - v.sqr());
     const smash::FourVector u(gamma, gamma * v);
     cells.push_back(
-        {smash::FourVector(), smash::FourVector(), u, 0.0, 0.0, 0.0, 0.0});
+        {smash::FourVector(), smash::FourVector(), u, smash::FourVector(),
+         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0});
   }
   std::vector<size_t> assignments;
   assignments.resize(cells.size());

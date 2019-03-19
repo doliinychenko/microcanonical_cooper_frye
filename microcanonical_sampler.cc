@@ -401,8 +401,9 @@ void MicrocanonicalSampler::random_two_to_three(
 
   if (N3 == 0 || N2 == 0) {
     if (debug_printout_) {
-      std::cout << "Not enough energy (" << srts << " GeV) for 2->3"
-                << std::endl;
+      std::cout << "Not enough energy (" << srts << " GeV) for 2->3 ("
+                << in[0].type->name() << in[1].type->name()
+                << "-> ?)" << std::endl;
     }
     rejected23_count_++;
     return;
@@ -517,7 +518,8 @@ void MicrocanonicalSampler::random_three_to_two(
     if (debug_printout_) {
       std::cout << "Not enough energy (" << srts
                 << " GeV) or wrong quantum"
-                   " numbers for 3->2"
+                   " numbers (B,S,Q = " << BSQ[0] << ", " << BSQ[1] << ", "
+                << BSQ[2] << ") for 3->2"
                 << std::endl;
     }
     rejected32_count_++;
