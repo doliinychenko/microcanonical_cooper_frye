@@ -91,7 +91,7 @@ void sample(std::string hypersurface_input_file,
             HyperSurfacePatch::InputFormat hypersurface_file_format,
             std::vector<ParticleTypePtr> printout_types, int N_warmup,
             int N_decorrelate, int N_printout,
-            double max_mass) {
+            double max_mass, double E_patch) {
   constexpr bool quantum_statistics = false;
   /**
    * A function, which defines, which species will be sampled. For
@@ -106,7 +106,6 @@ void sample(std::string hypersurface_input_file,
   std::cout << "Full hypersurface: " << hyper << std::endl;
   MicrocanonicalSampler sampler(is_sampled_type, 0, quantum_statistics);
 
-  constexpr double E_patch = 10.0;  // GeV
   auto patches = hyper.split(E_patch);
   size_t number_of_patches = patches.size();
 
@@ -179,8 +178,10 @@ int main(int argc, char **argv) {
   smash::random::set_seed(smash::random::generate_63bit_seed());
   smash::load_default_particles_and_decaymodes();
 
+  double Epatch = 10.0;  // GeV
+
   int opt = 0;
-  while ((opt = getopt (argc, argv, "rt")) != -1) {
+  while ((opt = getopt (argc, argv, "rte:")) != -1) {
     switch (opt) {
       case 'r':
         reproduce_arxiv_1902_09775();
@@ -188,6 +189,10 @@ int main(int argc, char **argv) {
       case 't':
         test_3body_integrals_precision();
         std::exit(EXIT_SUCCESS);
+      case 'e':
+        Epatch = std::stod(optarg);
+        std::cout << "Using patch energy " << Epatch << " GeV" << std::endl;
+        break;
       default:
         break;
     }
@@ -205,5 +210,5 @@ int main(int argc, char **argv) {
   constexpr double max_mass = 2.0;  // GeV
   sample("../../hyper_from_Jan/hypersurface/spinodal_hyper_pbpb_elb3.5_39-2.f16",
          HyperSurfacePatch::InputFormat::Steinheimer,
-         printout_types, N_warmup, N_decorrelate, N_printout, max_mass);
+         printout_types, N_warmup, N_decorrelate, N_printout, max_mass, Epatch);
 }

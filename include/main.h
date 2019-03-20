@@ -27,10 +27,11 @@ void reproduce_arxiv_1902_09775();
  * max_mass - maximal mass of hadrons to be sampled [GeV]. It influences
  * both sampling and computation of total energy and charged on
  * the hypersurface.
+ * Epatch - max. energy in the patch
  */
 void sample(std::string hypersurface_input_file,
             HyperSurfacePatch::InputFormat hypersurface_file_format,
             std::vector<smash::ParticleTypePtr> printout_types, int N_warmup,
             int N_decorrelate, int N_printout,
-            double max_mass);
+            double max_mass, double Epatch);
 #endif // MICROCANONICAL_SAMPLING_MAIN_H
