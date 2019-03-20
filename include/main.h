@@ -10,17 +10,8 @@
 #include "smash/isoparticletype.h"
 #include "smash/particletype.h"
 
-/**
- * Count, how many particles of type t are in the cell cell_number.
- */
-int type_count(const MicrocanonicalSampler::SamplerParticleList &particles,
-               const smash::ParticleTypePtr t, size_t cell_number);
-
-/**
- * A function, which defines, which species will be sampled. For
- * a given species, if it returns true, the species will be sampled.
- */
-bool is_sampled_type(const smash::ParticleTypePtr t);
+/// Provides samples to reproduce results of arXiv:1902.09775
+void reproduce_arxiv_1902_09775();
 
 /**
  * Main sampling routine. Reads the list of cells (hypersurface elements)
@@ -33,9 +24,13 @@ bool is_sampled_type(const smash::ParticleTypePtr t);
  * N_printout - number of printouts.
  * The total number of Markov chain steps is therefore
  * N_warmup + N_decorrelate * N_printout.
+ * max_mass - maximal mass of hadrons to be sampled [GeV]. It influences
+ * both sampling and computation of total energy and charged on
+ * the hypersurface.
  */
 void sample(std::string hypersurface_input_file,
             HyperSurfacePatch::InputFormat hypersurface_file_format,
             std::vector<smash::ParticleTypePtr> printout_types, int N_warmup,
-            int N_decorrelate, int N_printout);
+            int N_decorrelate, int N_printout,
+            double max_mass);
 #endif // MICROCANONICAL_SAMPLING_MAIN_H

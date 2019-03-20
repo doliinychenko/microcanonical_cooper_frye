@@ -73,11 +73,14 @@ to viscous-corrected distribution.
 
       cmake .. -DPythia_CONFIG_EXECUTABLE=[...]/pythia8235/bin/pythia8-config
 
-## Reproducing the Fig. 1 of arxiv.org/pdf/1902.09775.pdf
+## Reproducing the results shown in Fig. 1 of arxiv.org/pdf/1902.09775.pdf
 
-- Run ./microcanonical > sampled_output.txt
+- Run
+
+      cd build
+      ./microcanonical -r > sampled_output.txt
+      python ../scripts/mult_and_corr.py sampled_output.txt
 
   If you are running for the first time, it will tabulate 3-body integrals,
-  which takes around 3 hours. Next runs take around 12 minutes to generate
-  10^5 samples. Multiplicities in each cell are printed out, so one can compute
-  means, scaled variances, and correlations using a simple script.
+  which takes around 3 hours. Next runs take around 2 minutes to generate
+  10^5 samples (or 12 minutes if compiled without -O3).
