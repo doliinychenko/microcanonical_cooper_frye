@@ -52,17 +52,14 @@ public:
    * Construct a hypersurface subpatch from a given patch and a list of
    * cell indices to pick; compute total energy, momentum, and quantum numbers.
    * \param[in] big_patch a patch, from which a subpatch is taken.
-   * \param[in] subpatch_indices indices of the cells to take.
+   * \param[in] patch_begin begin iterator to copy subpatch.
+   * \param[in] patch_end end iterator to copy subpatch.
    */
-  HyperSurfacePatch(const HyperSurfacePatch &big_patch,
-                    const std::vector<size_t> subpatch_indices);
   HyperSurfacePatch(const HyperSurfacePatch &big_patch,
                     std::vector<hydro_cell>::iterator patch_begin,
                     std::vector<hydro_cell>::iterator patch_end);
-  /// Split into n patches, return patches
-  std::vector<HyperSurfacePatch> split(size_t n);
   /// Split into patches with roughly equal energies
-  std::vector<HyperSurfacePatch> split2(double E_patch);
+  std::vector<HyperSurfacePatch> split(double E_patch);
 
   int B() const { return B_tot_; }
   int S() const { return S_tot_; }

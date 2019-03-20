@@ -4,7 +4,7 @@ project(microcanonical_sampling)
 # Tell cmake where to find modules
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-add_executable(microcanonical test_sampler.cc microcanonical_sampler.cc hydro_cells.cc threebody_integrals.cc kmeans_clustering.cc)
+add_executable(microcanonical test_sampler.cc microcanonical_sampler.cc hydro_cells.cc threebody_integrals.cc)
 include_directories(include)
 
 # Set the relevant generic compiler flags (optimisation + warnings)

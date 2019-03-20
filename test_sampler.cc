@@ -6,7 +6,6 @@
 #include <streambuf>
 #include <string>
 
-#include "kmeans_clustering.h"
 #include "main.h"
 
 #include "smash/angles.h"
@@ -108,7 +107,7 @@ void sample(std::string hypersurface_input_file,
   MicrocanonicalSampler sampler(is_sampled_type, 0, quantum_statistics);
 
   constexpr double E_patch = 10.0;  // GeV
-  auto patches = hyper.split2(E_patch);
+  auto patches = hyper.split(E_patch);
   size_t number_of_patches = patches.size();
 
   std::vector<MicrocanonicalSampler::SamplerParticleList> particles;
@@ -187,7 +186,6 @@ int main(int argc, char **argv) {
         reproduce_arxiv_1902_09775();
         std::exit(EXIT_SUCCESS);
       case 't':
-        test_clustering();
         test_3body_integrals_precision();
         std::exit(EXIT_SUCCESS);
       default:

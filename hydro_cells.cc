@@ -2,7 +2,6 @@
 
 #include "hydro_cells.h"
 
-#include "kmeans_clustering.h"
 #include "smash/constants.h"
 
 #include <fstream>
@@ -33,17 +32,6 @@ HyperSurfacePatch::HyperSurfacePatch(
     throw std::runtime_error("Unknown input file format");
   }
   compute_totals();
-}
-
-HyperSurfacePatch::HyperSurfacePatch(const HyperSurfacePatch &big_patch,
-                  const std::vector<size_t> subpatch_indices) {
-  quantum_statistics_ = big_patch.quantum_statistics();
-  sampled_types_ = big_patch.sampled_types();
-  cells_.clear();
-  for (size_t i : subpatch_indices) {
-    cells_.push_back(big_patch.cell(i));
-  }
-  sum_up_totals_from_cells();
 }
 
 HyperSurfacePatch::HyperSurfacePatch(const HyperSurfacePatch &big_patch,
@@ -287,45 +275,10 @@ void HyperSurfacePatch::compute_totals() {
     cell.S *= a;
     cell.Q *= a;
   }
-  B_tot_nonint_ = 0.0;
-  S_tot_nonint_ = 0.0;
-  Q_tot_nonint_ = 0.0;
-  pmu_tot_ = smash::FourVector();
-  for (hydro_cell &cell : cells_) {
-    pmu_tot_ += cell.pmu;
-    B_tot_nonint_ += cell.B;
-    S_tot_nonint_ += cell.S;
-    Q_tot_nonint_ += cell.Q;
-  }
-  B_tot_ = static_cast<int>(std::round(B_tot_nonint_));
-  S_tot_ = static_cast<int>(std::round(S_tot_nonint_));
-  Q_tot_ = static_cast<int>(std::round(Q_tot_nonint_));
+  this->sum_up_totals_from_cells();
 }
 
-std::vector<HyperSurfacePatch> HyperSurfacePatch::split(size_t n_patches) {
-  std::cout << "Splitting hypersurface of " << Ncells() << " cells into "
-            << n_patches << " patches." << std::endl;
-  std::vector<size_t> patch_indices;
-  patch_indices.resize(Ncells());
-  std::vector<smash::ThreeVector> cluster_centers =
-      k_means(cells_, n_patches, 100, patch_indices);
-
-  std::vector<std::vector<size_t>> cell_indices;
-  cell_indices.resize(n_patches);
-  for (size_t i_cell = 0; i_cell < cells_.size(); i_cell++) {
-    size_t patch_index = patch_indices[i_cell];
-    cell_indices[patch_index].push_back(i_cell);
-  }
-
-  std::vector<HyperSurfacePatch> patches;
-  for (size_t i_patch = 0; i_patch < n_patches; i_patch++) {
-    patches.push_back(HyperSurfacePatch(*this, cell_indices[i_patch]));
-    std::cout << "Patch " << i_patch << ". " << patches.back() << std::endl;
-  }
-  return patches;
-}
-
-std::vector<HyperSurfacePatch> HyperSurfacePatch::split2(double E_patch_max) {
+std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
   // Compute variances of temperature and muB on the hypersurface
   // They are needed for clustering metric
   double mean_T = 0.0, mean_muB = 0.0,
