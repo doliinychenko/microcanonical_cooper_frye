@@ -16,7 +16,7 @@ print "# Ncells: ", Ncells
 mult_all = np.loadtxt(inputfile, dtype = int, skiprows = 20)
 Nsp = len(labels)
 mult_tot = np.copy(mult_all[:, 0:Nsp])
-print "# Hadron, means in cells, variance of total"
+print "# Hadron, means in cells, scaled variance of total"
 for i in xrange(1, Ncells):
     mult_tot += mult_all[:, i*Nsp:(i+1)*Nsp]
 types_of_interest = [u'π⁺', u'π⁻', u'K⁺', u'K̅⁻', u'N⁺', u'Λ', u'η', u'Ξ⁻', u'Ω⁻']
