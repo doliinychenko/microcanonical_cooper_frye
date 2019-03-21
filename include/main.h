@@ -17,6 +17,7 @@ void reproduce_arxiv_1902_09775();
  * Main sampling routine. Reads the list of cells (hypersurface elements)
  * from hypersurface_input_file of format hypersurface_file_format.
  * Then prepares the sampler and samples.
+ * The sampled particles are written to output_file.
  * N_warmup - number of warmup steps of Markov chain. These steps are
  *            done before printout. The number of steps should be large
  *            enough for Markov chain to reach stationary state.
@@ -29,9 +30,12 @@ void reproduce_arxiv_1902_09775();
  * the hypersurface.
  * Epatch - max. energy in the patch
  */
-void sample(std::string hypersurface_input_file,
+void sample(const std::string hypersurface_input_file,
             HyperSurfacePatch::InputFormat hypersurface_file_format,
-            std::vector<smash::ParticleTypePtr> printout_types, int N_warmup,
+            const std::string output_file, int N_warmup,
             int N_decorrelate, int N_printout,
             double max_mass, double Epatch);
+
+/// Prints out information about all command-line options
+void usage(const int rc, const std::string &progname);
 #endif // MICROCANONICAL_SAMPLING_MAIN_H

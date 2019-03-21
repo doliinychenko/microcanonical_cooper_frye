@@ -88,9 +88,9 @@ void reproduce_arxiv_1902_09775() {
   assert(cons.Q == hyper.Q());
 }
 
-void sample(std::string hypersurface_input_file,
+void sample(const std::string hypersurface_input_file,
             HyperSurfacePatch::InputFormat hypersurface_file_format,
-            std::vector<ParticleTypePtr> printout_types, int N_warmup,
+            const std::string output_file_name, int N_warmup,
             int N_decorrelate, int N_printout,
             double max_mass, double E_patch) {
   constexpr bool quantum_statistics = false;
@@ -134,35 +134,35 @@ void sample(std::string hypersurface_input_file,
   std::cout << total_particles << " particles" << std::endl;
   sampler.print_rejection_stats();
 
-  for (const ParticleTypePtr t : printout_types) {
-    std::cout << t->name() << "  ";
+  std::ofstream output_file(output_file_name, std::ios::out);
+  if (!output_file.is_open()) {
+    throw std::runtime_error("Can't open the output file.");
   }
-  std::cout << std::endl;
 
   for (int j = 0; j < N_printout; j++) {
+    // decorrelate
     #pragma omp parallel for
     for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
       for (int i = 0; i < N_decorrelate; ++i) {
         sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
       }
     }
-    std::map<std::pair<ParticleTypePtr, size_t>, size_t> counter;
+    // print out
+    if (j % 10000 == 0 && j != 0) {
+      std::cout << "sample " << j << std::endl;
+    }
+    output_file << "# sample " << j << std::endl;
     for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
       for (const auto &particle : particles[i_patch]) {
-        const std::pair<ParticleTypePtr, size_t> key(particle.type, i_patch);
-        if (counter.find(key) == counter.end()) {
-          counter[key] = 0;
-        }
-        counter[key]++;
+        const auto &cell = patches[i_patch].cell(particle.cell_index);
+        const FourVector p = particle.momentum;
+        output_file << cell.r.x0() << " " << cell.r.x1() << " "
+                    << cell.r.x2() << " " << cell.r.x3() << " "
+                    << p.x0() << " " << p.x1() << " "
+                    << p.x2() << " " << p.x3() << " "
+                    << particle.type->pdgcode().get_decimal() << std::endl;
       }
     }
-    for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
-      for (const ParticleTypePtr t : printout_types) {
-        const std::pair<ParticleTypePtr, size_t> key(t, i_patch);
-        std::cout << " " << counter[key];
-      }
-    }
-    std::cout << std::endl;
   }
 
   for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
@@ -172,7 +172,19 @@ void sample(std::string hypersurface_input_file,
     assert(cons.S == patches[i_patch].S());
     assert(cons.Q == patches[i_patch].Q());
   }
-  // sampler.print_rejection_stats();
+  sampler.print_rejection_stats();
+}
+
+void usage(const int rc, const std::string &progname) {
+  std::printf("\nUsage: %s [option]\n\n", progname.c_str());
+  std::printf(
+      "  -h, --help              usage information\n\n"
+      "  -r, --reproduce_1902_09775 reproduce results of arxiv::1902.09775\n"
+      "  -t, --test                 run testing functions\n"
+      "  -e, --energy_patch         maximal energy n the patch\n"
+      "  -o, --outputfile           output file"
+      " (default: ./sampled_particles.dat)\n\n");
+  std::exit(rc);
 }
 
 int main(int argc, char **argv) {
@@ -180,9 +192,22 @@ int main(int argc, char **argv) {
   smash::load_default_particles_and_decaymodes();
 
   double Epatch = 10.0;  // GeV
+  std::string output_file = "sampled_particles.dat";
 
+  constexpr option longopts[] = {
+      {"reproduce_1902_09775", no_argument, 0, 'r'},
+      {"test", no_argument, 0, 't'},
+      {"energy_patch", required_argument, 0, 'e'},
+      {"outputfile", required_argument, 0, 'o'},
+      {"help", no_argument, 0, 'h'},
+      {nullptr, 0, 0, 0}};
+
+  const std::string full_progname = std::string(argv[0]);
+  int i1 = full_progname.find_last_of("\\/") + 1, i2 = full_progname.size();
+  const std::string progname = full_progname.substr(i1, i2);
   int opt = 0;
-  while ((opt = getopt (argc, argv, "rte:")) != -1) {
+  while ((opt = getopt_long(argc, argv, "rte:o:h",
+          longopts, nullptr)) != -1) {
     switch (opt) {
       case 'r':
         reproduce_arxiv_1902_09775();
@@ -195,7 +220,14 @@ int main(int argc, char **argv) {
         Epatch = std::stod(optarg);
         std::cout << "Using patch energy " << Epatch << " GeV" << std::endl;
         break;
+      case 'o':
+        output_file = optarg;
+        break;
+      case 'h':
+        usage(EXIT_SUCCESS, progname);
+        break;
       default:
+        usage(EXIT_FAILURE, progname);
         break;
     }
   }
@@ -212,5 +244,5 @@ int main(int argc, char **argv) {
   constexpr double max_mass = 2.0;  // GeV
   sample("../../hyper_from_Jan/hypersurface/spinodal_hyper_pbpb_elb3.5_39-2.f16",
          HyperSurfacePatch::InputFormat::Steinheimer,
-         printout_types, N_warmup, N_decorrelate, N_printout, max_mass, Epatch);
+         output_file, N_warmup, N_decorrelate, N_printout, max_mass, Epatch);
 }
