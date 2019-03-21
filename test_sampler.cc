@@ -181,7 +181,7 @@ void usage(const int rc, const std::string &progname) {
       "  -h, --help              usage information\n\n"
       "  -r, --reproduce_1902_09775 reproduce results of arxiv::1902.09775\n"
       "  -t, --test                 run testing functions\n"
-      "  -e, --energy_patch         maximal energy n the patch\n"
+      "  -e, --energy_patch         set maximal energy [GeV] in the patch\n"
       "  -o, --outputfile           output file"
       " (default: ./sampled_particles.dat)\n\n");
   std::exit(rc);
@@ -228,16 +228,13 @@ int main(int argc, char **argv) {
         break;
       default:
         usage(EXIT_FAILURE, progname);
-        break;
     }
   }
 
-  ParticleTypePtrList printout_types;
-  for (const ParticleType &ptype : ParticleType::list_all()) {
-    if (ptype.is_hadron() && ptype.is_stable() && ptype.mass() < 2.0 &&
-        ptype.baryon_number() != -1 && ptype.pdgcode().charmness() == 0) {
-      printout_types.push_back(&ptype);
-    }
+  // Abort if there are unhandled arguments left.
+  if (optind < argc) {
+    std::cout << argv[0] << ": invalid argument -- '" << argv[optind] << "'\n";
+    usage(EXIT_FAILURE, progname);
   }
 
   const int N_warmup = 1E6, N_decorrelate = 2E2, N_printout = 1E4;
