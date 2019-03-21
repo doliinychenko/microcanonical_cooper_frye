@@ -281,35 +281,40 @@ void MicrocanonicalSampler::sample_3body_phase_space(double srts,
                                                      SamplerParticle &b,
                                                      SamplerParticle &c) {
   const double m_a = a.type->mass(), m_b = b.type->mass(), m_c = c.type->mass();
-  // sample mab from pCM(sqrt, mab, mc) pCM (mab, ma, mb) <= sqrts^2/4
-  double mab, r, probability, pcm_ab, pcm;
+  // sample mab from pCM(sqrt, mab, mc) pCM (mab, ma, mb)
+  double mab, probability, pcm_ab_sqr, pcm_sqr;
   do {
     mab = smash::random::uniform(m_a + m_b, srts - m_c);
-    r = smash::random::canonical();
-    pcm = smash::pCM(srts, mab, m_c);
-    pcm_ab = smash::pCM(mab, m_a, m_b);
-    probability = pcm * pcm_ab * 4 / (srts * srts);
-  } while (r > probability);
+    pcm_sqr = smash::pCM_sqr(srts, mab, m_c);
+    // pCM_sqr decreases as a function of the second argument ->
+    //         has maximum at minimal mab = m_a + m_b.
+    const double pcm_sqr_max = smash::pCM_sqr(srts, m_a + m_b, m_c);
+    pcm_ab_sqr = smash::pCM_sqr(mab, m_a, m_b);
+    // pCM_sqr increases as a function of the first argument ->
+    //         has maximum at maximal mab = srts - m_c.
+    const double pcm_ab_sqr_max = smash::pCM_sqr(srts - m_c, m_a, m_b);
+
+    probability = std::sqrt(pcm_sqr * pcm_ab_sqr /
+                  (pcm_sqr_max * pcm_ab_sqr_max));
+  } while (smash::random::canonical() > probability);
+  const double pcm = std::sqrt(pcm_sqr), pcm_ab = std::sqrt(pcm_ab_sqr);
   smash::Angles phitheta;
   phitheta.distribute_isotropically();
-  c.momentum = smash::FourVector(std::sqrt(m_c * m_c + pcm * pcm),
+  c.momentum = smash::FourVector(std::sqrt(m_c * m_c + pcm_sqr),
                                  pcm * phitheta.threevec());
   const smash::ThreeVector beta_cm =
-      pcm * phitheta.threevec() / std::sqrt(pcm * pcm + mab * mab);
+      pcm * phitheta.threevec() / std::sqrt(pcm_sqr + mab * mab);
 
   phitheta.distribute_isotropically();
-  a.momentum = smash::FourVector(std::sqrt(m_a * m_a + pcm_ab * pcm_ab),
+  a.momentum = smash::FourVector(std::sqrt(m_a * m_a + pcm_ab_sqr),
                                  pcm_ab * phitheta.threevec());
-  b.momentum = smash::FourVector(std::sqrt(m_b * m_b + pcm_ab * pcm_ab),
+  b.momentum = smash::FourVector(std::sqrt(m_b * m_b + pcm_ab_sqr),
                                  -pcm_ab * phitheta.threevec());
   a.momentum = a.momentum.LorentzBoost(beta_cm);
   b.momentum = b.momentum.LorentzBoost(beta_cm);
-  if (debug_printout_ == 3) {
-    std::cout << "Sample 3-body phase space: total momentum = "
-              << a.momentum + b.momentum + c.momentum << std::endl;
-  }
-  // assert(std::abs((a.momentum + b.momentum + c.momentum
-  //                 - smash::FourVector(srts, 0, 0, 0)).abs()) < 1.e-12);
+  smash::FourVector mom_tot = a.momentum + b.momentum + c.momentum;
+  mom_tot.set_x0(mom_tot.x0() - srts);
+  assert(std::abs(mom_tot.sqr()) < 1.e-12);
 }
 
 double MicrocanonicalSampler::mu_minus_E_over_T(
@@ -682,6 +687,19 @@ void MicrocanonicalSampler::renormalize_momenta(
   if (conserved_final.momentum.abs() > required_total_momentum.abs() + 1.e-3) {
     throw std::runtime_error("Sum of particle masses is larger than "
       "the required patch energy.");
+  }
+}
+
+void MicrocanonicalSampler::test_3body_phase_space_sampling() {
+  const double sqrts = 6.0;
+  const smash::ParticleTypePtr pi = &smash::ParticleType::find(0x111),
+                               N = &smash::ParticleType::find(0x2212),
+                               Delta = &smash::ParticleType::find(0x2224);
+  SamplerParticle a{smash::FourVector(), pi, 0}, b{smash::FourVector(), N, 0},
+                  c{smash::FourVector(), Delta, 0};
+  for (size_t i = 0; i < 100000; i++) {
+    MicrocanonicalSampler::sample_3body_phase_space(sqrts, a, b, c);
+    std::cout << a.momentum << b.momentum << c.momentum << std::endl;
   }
 }
 

@@ -7,6 +7,7 @@
 #include <string>
 
 #include "main.h"
+#include "microcanonical_sampler.h"
 
 #include "smash/angles.h"
 #include "smash/constants.h"
@@ -81,7 +82,7 @@ void reproduce_arxiv_1902_09775() {
     std::cout << std::endl;
   }
   MicrocanonicalSampler::QuantumNumbers cons(particles);
-  assert((cons.momentum - hyper.pmu()).abs() < 1.e-5);
+  assert((cons.momentum - hyper.pmu()).abs() < 1.e-4);
   assert(cons.B == hyper.B());
   assert(cons.S == hyper.S());
   assert(cons.Q == hyper.Q());
@@ -166,7 +167,7 @@ void sample(std::string hypersurface_input_file,
 
   for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
     MicrocanonicalSampler::QuantumNumbers cons(particles[i_patch]);
-    assert((cons.momentum - patches[i_patch].pmu()).abs() < 1.e-6);
+    assert((cons.momentum - patches[i_patch].pmu()).abs() < 1.e-4);
     assert(cons.B == patches[i_patch].B());
     assert(cons.S == patches[i_patch].S());
     assert(cons.Q == patches[i_patch].Q());
@@ -188,6 +189,7 @@ int main(int argc, char **argv) {
         std::exit(EXIT_SUCCESS);
       case 't':
         test_3body_integrals_precision();
+        MicrocanonicalSampler::test_3body_phase_space_sampling();
         std::exit(EXIT_SUCCESS);
       case 'e':
         Epatch = std::stod(optarg);

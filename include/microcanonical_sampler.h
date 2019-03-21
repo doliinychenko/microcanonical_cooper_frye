@@ -57,6 +57,7 @@ public:
   /// Set quantum statistics
   void set_quantum_statistics(bool qs) { quantum_statistics_ = qs; }
   void print_rejection_stats();
+  static void test_3body_phase_space_sampling();
 
 private:
   /**
@@ -64,7 +65,7 @@ private:
   double compute_R2(double srts, double m1, double m2);
   size_t N_available_channels3(std::array<int, 3> &BSQ, double srts);
   size_t N_available_channels2(std::array<int, 3> &BSQ, double srts);
-  void sample_3body_phase_space(double srts, SamplerParticle &a,
+  static void sample_3body_phase_space(double srts, SamplerParticle &a,
                                 SamplerParticle &b, SamplerParticle &c);
   double mu_minus_E_over_T(const SamplerParticle &p,
                            const HyperSurfacePatch &hypersurface);
