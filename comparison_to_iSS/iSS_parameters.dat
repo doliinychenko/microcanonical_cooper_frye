@@ -1,0 +1,181 @@
+hydro_mode = 2           # mode for reading in freeze out information 
+                         # 0: reads outputs from VISH2+1
+                         # 1: reads outputs from MUSIC assuming 
+                         #    boost-invariant
+                         # 2: reads outputs from MUSIC full (3+1)-d
+
+turn_on_bulk = 0         # read in bulk viscous pressure
+turn_on_rhob = 0         # read in net baryon chemical potential
+turn_on_diff = 0         # read in baryon diffusion current
+
+include_deltaf_shear = 0      # include delta f contribution from shear
+include_deltaf_bulk = 0       # include delta f contribution from bulk
+include_deltaf_diffusion = 0  # include delta f contribution from diffusion
+
+bulk_deltaf_kind = 1     # 0 : 14-momentum approximation
+                         # 1 : relaxation time approximation
+
+restrict_deltaf = 0      # flag to apply restriction on the size of delta f
+deltaf_max_ratio = 1.0   # the maximum allowed size of delta f w.r.t f0
+
+f0_is_not_small = 1      # include (1 \pm f_0) factor in delta f
+
+output_samples_into_files = 0  # output particle samples into individual files
+                               # for individual particle species
+store_samples_in_memory = 1  # flag to store particle samples in memory
+use_OSCAR_format = 1         # output results in OSCAR format
+use_gzip_format = 0          # output results in gzip format (only works with
+                             # store_samples_in_memory = 1)
+perform_decays = 0           # flag to perform resonance decay
+
+local_charge_conservation = 0  # flag to impose local charge conservation
+
+calculate_vn = 0         # 1/0: whether to calculate the 
+                         # dN/(pt dpt dphi dy) and v_n flows 
+                         # (they not required for MC-sampling)
+
+MC_sampling = 2          # 0/1/2/3: whether to perform Monte-Carlo sampling
+                         # (not required for spectra calculation). 
+                         # 0: No sampling. 
+                         # 1: use dN_dxtdetady to sample. 
+                         # 2: use dN_dxtdy to sample. 
+                         # 3: use dN_pTdpTdphidy to sample 
+                         #    (overwrites calculate_vn to be 1). 
+                         # Since this parameter controls whether to 
+                         # calculate certain arrays, it controls whether to 
+                         # perform other related calculations (see below).
+
+dN_dy_sampling_model = 30    # Controls how an non-integer dN_dy is sampled to 
+                             # produce an integer that can be used in actual 
+                             # sampling
+                             # -- all numbers below 100 are reserved for 
+                             #    "conventional" sampling where actual particle 
+                             #    yields are used to constrain the sampling. 
+                             #    101-200 are reserved for sampling using total 
+                             #    energy flux from freeze-out surface.
+                             # -- 1: The fractional part of dN_dy is used as a 
+                             #    probability to determine whether there is 1 
+                             #    more particle
+                             # -- 10: Use NBD to sample the fractional part 
+                             #    of dN_dy. The probability is calculated so 
+                             #    that p=nb/(nb+k) and k is assumed to be 
+                             #    proportional to n, and the proportionality 
+                             #    constant is given by the parameter 
+                             #    dN_dy_sampling_para1.
+                             # -- 20: Use NBD to sample the whole dN_dy. 
+                             #    k is assumed to be proportional to n, 
+                             #    with coefficient dN_dy_sampling_para1.
+                             # -- 30: Use Poisson distribution to sample the 
+                             #    whole dN_dy. The mean value is set to be 
+                             #    dN_dy
+                             # -- 110: Total energy flux from freeze-out 
+                             #    surface is used to constrain dN_dy. 
+                             #    Whenever the total energy carried away from 
+                             #    all the sampled particles exceed the total 
+                             #    energy flux, the sampling procedure stops.
+
+
+dN_dy_sampling_para1 = 0.16  # Additional parameters for dN/dy sampling. 
+                             # -- For dN_dy_sampling_model==10 or 20, 
+                             #    this parameter sets the ratio k/n for NBD, 
+                             #    see explanation for dN_dy_sampling_model.
+
+y_LB = -5.0                  # lower bound for y-sampling; 
+                             # used in "conventional" sampling
+y_RB = 5.0                   # upper bound for y-sampling; used in 
+                             # "conventional" sampling
+
+eta_s_LB = -0.5              # lower bound for eta_s sampling; used only when 
+                             # sampling using total energy flux
+eta_s_RB = 0.5               # upper bound for eta_s sampling.
+
+use_dynamic_maximum = 0      # 0/1: Whether to automatically reduce the 
+                             # guessed maximum after some calculations. 
+                             # Work only when MC_sampling is set to 2.
+adjust_maximum_after = 100000    # Used only when use_dynamic_maximum=1. 
+                                 # After the number of sampling given by 
+                                 # this parameter the guessed maximum is 
+                                 # adjusted.
+adjust_maximum_to = 1.2      # [1,inf]: When guessed maximum is adjusted, 
+                             # it is adjusted to the "observed maximum" 
+                             # multiplied by this value. Note that the 
+                             # "observed maximum" is measured relative to 
+                             # the guessed maximum. See code for details.
+
+grouping_particles = 1       # 0/1: Particles will be re-order according to 
+                             # their mass. This parameter combined with 
+                             # grouping_tolerance parameter can make particles 
+                             # with similar mass and chemical potentials to be 
+                             # sampled together.
+grouping_tolerance = 0.01    # If two particles adjacent in the table have 
+                             # mass and chemical potentials close within this 
+                             # relative tolerance, they are considered to be 
+                             # identical and will be sampled successively 
+                             # without regenerating the dN / (dxt deta dy) 
+                             # matrix for efficiency.
+
+use_historic_flow_output_format = 0    # 1/0: The "historical flow format" 
+                                       # means to output flows for all 
+                                       # particles in a single v2** file and 
+                                       # to add lines with particles names to 
+                                       # the v2** file. Turn this option off 
+                                       # to enbrace the new way of outputting 
+                                       # which allows the using of parameter 
+                                       # grouping_particles to speed up the 
+                                       # calculations.
+
+calculate_vn_to_order = 2              # v_n's are calculated up to this order
+
+sample_upto_desired_particle_number = 0  # flag to run sampling until desired
+                                         # particle numbers is reached
+number_of_particles_needed = 100000      # number of hadrons to sample
+number_of_repeated_sampling = 10      # How many times should the sampling be 
+                                       # repeated.
+
+sample_pT_up_to = -1                   # Up to this value will pT be sampled; 
+                                       # if<0 then use the largest value in 
+                                       # the pT table.
+sample_y_minus_eta_s_range = 3         # y_minus_eta_s will be sampled between 
+                                       # +- this value. It is used only when 
+                                       # sampling using 
+                                       # sample_using_dN_dxtdy_4all_particles 
+                                       # function.
+
+use_pos_dN_only = 0                    # 1/0: When set to 1, all negative 
+                                       # emission functions will be skipped. 
+                                       # Effects the both dN_ptdptdphidy and 
+                                       # dN_dxtdetady calculations. 
+
+minimum_emission_function_val = 1e-30  # If dN/(dx_t deta dy) is evaluated to 
+                                       # be smaller than this value, then it 
+                                       # is replaced by this value.
+
+calculate_dN_dtau = 0      # Output dN_dtau table. Only applicable 
+                           # if MC_sampling parameter is set to 1.
+bin_tau0 = 0.6             # used to generate bins for 
+                           # calculate_dN_dtau_using_dN_dxtdeta function
+bin_dtau = 0.2             # used to generate bins for 
+                           # calculate_dN_dtau_using_dN_dxtdeta function
+bin_tau_max = 17.0         # used to generate bins for 
+                           # calculate_dN_dtau_using_dN_dxtdeta function
+
+calculate_dN_dx = 0        # Output dN_dx table. Only applicable 
+                           # if MC_sampling parameter is set to 1.
+bin_x_min = -10.0          # used to generate bins for 
+                           # calculate_dN_dx_using_dN_dxtdeta function
+bin_dx = 0.5               # used to generate bins 
+                           # for calculate_dN_dx_using_dN_dxtdeta function
+bin_x_max = 10.0           # used to generate bins for 
+                           # calculate_dN_dx_using_dN_dxtdeta function
+
+calculate_dN_dphi = 0      # Output dN_dphi table. Only applicable 
+                           # if calculate_vn parameter is set to 1.
+calculate_dN_deta = 1      # Output dN_deta table. Only applicable 
+                           # if MC_sampling parameter is set to 1.
+calculate_dN_dxt = 1       # Output dN_dxt table. Only applicable 
+                           # if MC_sampling parameter is set to 1.
+
+output_dN_dxtdy_4all = 0   # Output dN_dxtdy table. Only applicable 
+                           # if MC_sampling parameter is set to 2.
+
+randomSeed = -1            # If <0, use system clock.
