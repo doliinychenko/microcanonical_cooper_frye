@@ -6,14 +6,18 @@ import sys
 
 inputfile = sys.argv[1]
 print inputfile
+lines_to_skip = 1
 with open(inputfile, 'r') as f:
-    for _ in xrange(19): f.readline()
-    labels = f.readline().decode("utf-8").split()
+    line = f.readline()
+    while (line) and (not u'π⁺' in line.decode("utf-8").split()):
+        lines_to_skip += 1
+        line = f.readline()
+    labels = line.decode("utf-8").split()
     mult_size = len(f.readline().strip().split())
     Ncells = mult_size / len(labels)
 
 print "# Ncells: ", Ncells
-mult_all = np.loadtxt(inputfile, dtype = int, skiprows = 20)
+mult_all = np.loadtxt(inputfile, dtype = int, skiprows = lines_to_skip)
 Nsp = len(labels)
 mult_tot = np.copy(mult_all[:, 0:Nsp])
 print "# Hadron, means in cells, scaled variance of total"
