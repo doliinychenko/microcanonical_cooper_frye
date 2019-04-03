@@ -81,6 +81,4 @@ to viscous-corrected distribution.
       ./microcanonical -r > sampled_output.txt
       python ../scripts/mult_and_corr.py sampled_output.txt
 
-  If you are running for the first time, it will tabulate 3-body integrals,
-  which takes around 3 hours. Next runs take around 2 minutes to generate
-  10^5 samples (or 12 minutes if compiled without -O3).
+  It takes around 2 minutes to generate 10^5 samples.
