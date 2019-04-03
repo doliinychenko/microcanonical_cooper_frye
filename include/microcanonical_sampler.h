@@ -9,7 +9,6 @@
 #include "smash/particletype.h"
 
 #include "hydro_cells.h"
-#include "threebody_integrals.h"
 
 class MicrocanonicalSampler {
 public:
@@ -58,21 +57,29 @@ public:
   void set_quantum_statistics(bool qs) { quantum_statistics_ = qs; }
   void print_rejection_stats();
   static void test_3body_phase_space_sampling();
+  static void test_3body_integrals();
 
 private:
   /**
+   * Analytical value of 2-body integral, Eq. (B2) from
+   * [arXiv:1710.00665 [hep-ph]]
    */
-  double compute_R2(double srts, double m1, double m2);
+  static double compute_R2(double srts, double m1, double m2);
+  /**
+   * Analytical value of 3-body phase space integrals from
+   * Eqs. (54-58) of [hep-ph/9406404].
+   */
+  static double compute_R3(double srts, double m1, double m2, double m3);
   size_t N_available_channels3(std::array<int, 3> &BSQ, double srts);
   size_t N_available_channels2(std::array<int, 3> &BSQ, double srts);
   static void sample_3body_phase_space(double srts, SamplerParticle &a,
                                 SamplerParticle &b, SamplerParticle &c);
-  double mu_minus_E_over_T(const SamplerParticle &p,
+  static double mu_minus_E_over_T(const SamplerParticle &p,
                            const HyperSurfacePatch &hypersurface);
   double compute_cells_factor(const SamplerParticleList &in,
                               const SamplerParticleList &out,
-                              const HyperSurfacePatch &hypersurface);
-  double compute_spin_factor(const SamplerParticleList &in,
+                              const HyperSurfacePatch &hypersurface) const;
+  static double compute_spin_factor(const SamplerParticleList &in,
                              const SamplerParticleList &out);
 
   void random_two_to_three(const HyperSurfacePatch &hypersurface,
@@ -100,7 +107,6 @@ private:
    *  in the same order that in channels3_ and channels2_
    */
   std::map<std::array<int, 3>, std::vector<double>> thresholds3_, thresholds2_;
-  ThreeBodyIntegrals three_body_int_;
   int debug_printout_;
   bool quantum_statistics_;
   int accepted23_count_ = 0, accepted32_count_ = 0, rejected23_count_ = 0,

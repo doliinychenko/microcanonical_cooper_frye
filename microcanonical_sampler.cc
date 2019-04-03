@@ -1,9 +1,11 @@
 #include <fstream>
 #include <vector>
+#include <iostream>
 
 #include "hydro_cells.h"
 #include "microcanonical_sampler.h"
-#include "threebody_integrals.h"
+
+#include <gsl/gsl_sf_ellint.h>
 
 #include "smash/angles.h"
 #include "smash/constants.h"
@@ -130,42 +132,6 @@ MicrocanonicalSampler::MicrocanonicalSampler(
       thresholds2_[BSQ].push_back(t[0]->mass() + t[1]->mass());
     }
   }
-
-  // Prepare 3-body integrals
-  if (debug_printout_) {
-    std::cout << "Preparing 3-body integrals..." << std::endl;
-  }
-  std::vector<double> unique_masses;
-  for (const smash::ParticleTypePtr t : sampled_types_) {
-    unique_masses.push_back(t->mass());
-  }
-  std::sort(unique_masses.begin(), unique_masses.end());
-  unique_masses.erase(std::unique(unique_masses.begin(), unique_masses.end()),
-                      unique_masses.end());
-  const size_t N_masses = unique_masses.size();
-  std::cout << N_masses << " different masses in total" << std::endl;
-  const std::string save_integrals_file("../saved_3body_integrals.dat");
-  std::ifstream f(save_integrals_file);
-  if (f.good()) {
-    three_body_int_.get_from_file(save_integrals_file);
-  }
-  const size_t expected_integrals_number =
-      N_masses * (N_masses + 1) * (N_masses + 2) / 6;
-  if (three_body_int_.number_of_integrals() < expected_integrals_number) {
-    std::cout << "Read " << three_body_int_.number_of_integrals()
-              << " integrals from " << save_integrals_file << ", but need "
-              << expected_integrals_number << " in total -> computing them"
-              << " and adding to file" << std::endl;
-    for (size_t i = 0; i < N_masses; i++) {
-      for (size_t j = 0; j <= i; j++) {
-        for (size_t k = 0; k <= j; k++) {
-          three_body_int_.add(unique_masses[i], unique_masses[j],
-                              unique_masses[k]);
-        }
-      }
-    }
-    three_body_int_.save_to_file(save_integrals_file);
-  }
 }
 
 void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface,
@@ -271,15 +237,55 @@ void MicrocanonicalSampler::one_markov_chain_step(
   }
 }
 
-double MicrocanonicalSampler::compute_R2(double srts, double m1, double m2) {
+double
+MicrocanonicalSampler::compute_R2(double srts, double m1, double m2) {
   return (srts > m1 + m2) ? smash::pCM(srts, m1, m2) / (4.0 * M_PI * srts)
                           : 0.0;
 }
 
+double MicrocanonicalSampler::compute_R3(double srts, double m1, double m2,
+                                          double m3) {
+  if (srts < m1 + m2 + m3) {
+    return 0.0;
+  }
+  const double x1 = (m1 - m2) * (m1 - m2), x2 = (m1 + m2) * (m1 + m2),
+               x3 = (srts - m3) * (srts - m3), x4 = (srts + m3) * (srts + m3);
+  const double qmm = x3 - x1, qmp = x3 - x2, qpm = x4 - x1, qpp = x4 - x2;
+  const double kappa = std::sqrt(qpm * qmp / (qpp * qmm));
+  const double tmp = std::sqrt(qmm * qpp);
+  const double c1 =
+      4.0 * m1 * m2 * std::sqrt(qmm / qpp) * (x4 - m3 * srts + m1 * m2);
+  const double c2 = 0.5 * (m1 * m1 + m2 * m2 + m3 * m3 + srts * srts) * tmp;
+  const double c3 = 8 * m1 * m2 / tmp *
+                    ((m1 * m1 + m2 * m2) * (m3 * m3 + srts * srts) -
+                     2 * m1 * m1 * m2 * m2 - 2 * m3 * m3 * srts * srts);
+  const double c4 =
+      -8 * m1 * m2 / tmp * smash::pow_int(srts * srts - m3 * m3, 2);
+  const double precision = 1.e-6;
+  const double res =
+      c1 * gsl_sf_ellint_Kcomp(kappa, precision) +
+      c2 * gsl_sf_ellint_Ecomp(kappa, precision) +
+      c3 * gsl_sf_ellint_Pcomp(kappa, -qmp / qmm, precision) +
+      c4 * gsl_sf_ellint_Pcomp(kappa, -x1 * qmp / (x2 * qmm), precision);
+  return res / (128.0 * M_PI * M_PI * M_PI * srts * srts);
+}
+
+void MicrocanonicalSampler::test_3body_integrals() {
+  const double my_value1 = compute_R3(5.0, 1.2, 1.3, 1.4) * 1E8;
+  const double mathematica_value1 = 0.000326309 * 1E8;
+  const double my_value2 = compute_R3(1.0, 0.27, 0.3, 0.4) * 1E8;
+  const double mathematica_value2 = 26.4663;
+  std::cout << "Test 1: "
+            << my_value1 << " == " << mathematica_value1 << std::endl;
+  std::cout << "Test 2: "
+            << my_value2 << " == " << mathematica_value2 << std::endl;
+}
+
+
 void MicrocanonicalSampler::sample_3body_phase_space(double srts,
-                                                     SamplerParticle &a,
-                                                     SamplerParticle &b,
-                                                     SamplerParticle &c) {
+                                                    SamplerParticle &a,
+                                                    SamplerParticle &b,
+                                                    SamplerParticle &c) {
   const double m_a = a.type->mass(), m_b = b.type->mass(), m_c = c.type->mass();
   // sample mab from pCM(sqrt, mab, mc) pCM (mab, ma, mb)
   double mab, probability, pcm_ab_sqr, pcm_sqr;
@@ -327,7 +333,7 @@ double MicrocanonicalSampler::mu_minus_E_over_T(
 
 double MicrocanonicalSampler::compute_cells_factor(
     const SamplerParticleList &in, const SamplerParticleList &out,
-    const HyperSurfacePatch &hypersurface) {
+    const HyperSurfacePatch &hypersurface) const {
   double cells_factor = 0.0;
   if (!quantum_statistics_) {
     for (const SamplerParticle &p : out) {
@@ -423,7 +429,7 @@ void MicrocanonicalSampler::random_two_to_three(
       smash::random::uniform_int<size_t>(0, Ncells - 1)};
   size_t i_channel = smash::random::uniform_int<size_t>(0, N3 - 1);
   std::array<smash::ParticleTypePtr, 3> out_types = channels3_[BSQ][i_channel];
-  const double R3 = three_body_int_.value(
+  const double R3 = compute_R3(
       srts, out_types[0]->mass(), out_types[1]->mass(), out_types[2]->mass());
   const double R2 = compute_R2(srts, in[0].type->mass(), in[1].type->mass());
   out[0] = {smash::FourVector(), out_types[0], cell[0]};
@@ -539,7 +545,7 @@ void MicrocanonicalSampler::random_three_to_two(
       smash::random::uniform_int<size_t>(0, Ncells - 1)};
   size_t i_channel = smash::random::uniform_int<size_t>(0, N2 - 1);
   std::array<smash::ParticleTypePtr, 2> out_types = channels2_[BSQ][i_channel];
-  const double R3 = three_body_int_.value(
+  const double R3 = compute_R3(
       srts, in[0].type->mass(), in[1].type->mass(), in[2].type->mass());
   const double R2 =
       compute_R2(srts, out_types[0]->mass(), out_types[1]->mass());
