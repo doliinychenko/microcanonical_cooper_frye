@@ -49,16 +49,20 @@ int main(int argc, char **argv) {
       std::cout << "Cell " << line_counter << std::endl;
     }
 
+    /**
+     * In iSS Milne coordinates are used and u_mu with lower index is read in:
+     * dsigma_dot_u = tau*(da0*gammaT + ux*da1 + uy*da2 + uz*da3/tau);
+     */
     const double tau = std::sqrt(t*t - z*z);
     const double eta = std::atanh(z / t), cheta = std::cosh(eta),
                                           sheta = std::sinh(eta);
     const double ds0_Milne = (ds0 * cheta - ds3 * sheta) / tau;
-    const double ds1_Milne = ds1, ds2_Milne = ds2;
+    const double ds1_Milne = ds1 / tau, ds2_Milne = ds2 / tau;
     const double ds3_Milne = (ds0 * sheta - ds3 * cheta);
     const double u0_Milne = gamma * (cheta - vz * sheta);
     const double u1_Milne = gamma * vx;
     const double u2_Milne = gamma * vy;
-    const double u3_Milne = gamma * (vz * cheta - sheta) / tau;
+    const double u3_Milne = gamma * (vz * cheta - sheta);
     const double dummy_e = 1.0;  // It's only for viscous corrections in iSS
     outputfile << tau << " " << x << " " << y << " " << eta << " "
                << ds0_Milne << " " << ds1_Milne << " "
@@ -68,5 +72,16 @@ int main(int argc, char **argv) {
                << dummy_e / hbarc << " " << T / hbarc << " "
                << muB / hbarc << " " << muS / hbarc << " "
                << muQ / hbarc << " 0 0 0 0 0 0 0 0 0 0 0" << std::endl;
+    // Check that the umu*dsigmamu remains invariant after conversion
+    const double umu_dsigmamu = gamma * (ds0 - ds1 * vx - ds2 * vy - ds3 * vz);
+    const double umu_dsigmamu_music = tau * (ds0_Milne * u0_Milne +
+                                             ds1_Milne * u1_Milne +
+                                             ds2_Milne * u2_Milne +
+                                             ds3_Milne * u3_Milne / tau);
+    if (std::abs(umu_dsigmamu - umu_dsigmamu_music) > 1.e-12) {
+      std::cout << "u^mu * dsigma_mu should be invariant: "
+                << umu_dsigmamu << " == " << umu_dsigmamu_music << std::endl;
+      std::exit(EXIT_FAILURE);
+    }
   }
 }

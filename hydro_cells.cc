@@ -101,8 +101,8 @@ void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
     const double ch_eta = std::cosh(eta);
     const double sh_eta = std::sinh(eta);
     const double t = tau * ch_eta, z = tau * sh_eta;
-    smash::FourVector u(u0 * ch_eta + u3 * tau * sh_eta, u1, u2,
-                        u0 * sh_eta + u3 * tau * ch_eta);
+    smash::FourVector u(u0 * ch_eta + u3 * sh_eta, u1, u2,
+                        u0 * sh_eta + u3 * ch_eta);
     // dsigma output from MUSIC is with lower index, I need upper
     ds1 = -ds1;
     ds2 = -ds2;
