@@ -84,10 +84,10 @@ void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
     // clang-format on
     smash::FourVector u_Milne(u0, u1, u2, u3);
     assert(T >= 0.0);
-    smash::FourVector u_Milne_test(u0, u1, u2, u3 * tau);
-    if (std::abs(u_Milne_test.sqr() - 1.0) > 1.e-2) {
-      std::cout << "Warning at reading from MUSIC output (line " << line_counter
-                << "): "
+    smash::FourVector u_Milne_test(u0, u1, u2, u3);
+    if (std::abs(u_Milne_test.sqr() - 1.0) > 1.e-9) {
+      std::cout << "Warning at reading from MUSIC output (line "
+                << line_counter << "): "
                 << "u_Milne (u_eta multiplied by tau) = " << u_Milne_test
                 << ", u^2 == 1 is not fulfilled with error "
                 << std::abs(u_Milne_test.sqr() - 1.0) << std::endl;
@@ -97,24 +97,33 @@ void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
     muB *= smash::hbarc;
     muS = 0.0;
     muQ = 0.0;
+    const double umu_dsigmamu_music = tau * (ds0 * u0 + ds1 * u1 +
+                                             ds2 * u2 + ds3 * u3 / tau);
     // Transforming from Milne to Cartesian
     const double ch_eta = std::cosh(eta);
     const double sh_eta = std::sinh(eta);
     const double t = tau * ch_eta, z = tau * sh_eta;
     smash::FourVector u(u0 * ch_eta + u3 * sh_eta, u1, u2,
                         u0 * sh_eta + u3 * ch_eta);
-    // dsigma output from MUSIC is with lower index, I need upper
-    ds1 = -ds1;
-    ds2 = -ds2;
-    ds3 = -ds3;
-    smash::FourVector ds(tau * ch_eta * ds0 - ds3 * sh_eta, tau * ds1,
-                         tau * ds2, tau * sh_eta * ds0 - ds3 * ch_eta);
+    if (std::abs(u.sqr() - 1.0) > 1.e-3) {
+      std::cout << "u*u should be 1, u*u = " << u.sqr() << std::endl;
+    }
+    smash::FourVector ds(tau * ch_eta * ds0 - ds3 * sh_eta, - tau * ds1,
+                         - tau * ds2, tau * sh_eta * ds0 - ds3 * ch_eta);
     if (ds.sqr() < 0) {
       std::cout << "dsigma^2 < 0, dsigma = " << ds
-                << "original dsigma = " << smash::FourVector(ds0, ds1, ds2, ds3)
-                << ", T = " << T << ", muB = " << muB << ", cell "
-                << line_counter << std::endl;
+             << ", original dsigma = " << smash::FourVector(ds0, ds1, ds2, ds3)
+             << ", T = " << T << ", muB = " << muB << ", cell "
+             << line_counter << std::endl;
     }
+
+    // Check that the umu*dsigmamu remains invariant after conversion
+    const double umu_dsigmamu = ds.Dot(u);
+    if (std::abs(umu_dsigmamu - umu_dsigmamu_music) > 1.e-4) {
+      std::cout << "u^mu * dsigma_mu should be invariant: "
+                << umu_dsigmamu << " == " << umu_dsigmamu_music << std::endl;
+    }
+
     cells_.push_back({{t, x, y, z}, ds, u, {0.0, 0.0, 0.0, 0.0},
                       T, muB, muS, muQ, 0.0, 0.0, 0.0});
   }
