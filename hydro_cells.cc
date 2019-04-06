@@ -203,7 +203,7 @@ void HyperSurfacePatch::compute_totals() {
     #pragma omp atomic
     ++cell_counter;
     if (cell_counter % 100000 == 0) {
-      std::cout << "Cell " << cell_counter << std::endl;
+      printf("Cell %d\n", cell_counter);
     }
     cell.pmu = smash::FourVector();
     cell.B = 0.0;
