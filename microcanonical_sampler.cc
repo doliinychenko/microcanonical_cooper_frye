@@ -416,6 +416,7 @@ void MicrocanonicalSampler::random_two_to_three(
                 << in[0].type->name() << in[1].type->name()
                 << "-> ?)" << std::endl;
     }
+    #pragma omp atomic
     rejected23_count_++;
     return;
   }
@@ -488,11 +489,13 @@ void MicrocanonicalSampler::random_two_to_three(
     particles[in_index1] = out[0];
     particles[in_index2] = out[1];
     particles.push_back(out[2]);
+    #pragma omp atomic
     accepted23_count_++;
     if (debug_printout_ == 1) {
       std::cout << in << "->" << out << ";" << srts << std::endl;
     }
   } else {
+    #pragma omp atomic
     rejected23_count_++;
   }
 }
@@ -533,6 +536,7 @@ void MicrocanonicalSampler::random_three_to_two(
                 << BSQ[2] << ") for 3->2"
                 << std::endl;
     }
+    #pragma omp atomic
     rejected32_count_++;
     return;
   }
@@ -606,11 +610,13 @@ void MicrocanonicalSampler::random_three_to_two(
     particles[in_index1] = out[0];
     particles[in_index2] = out[1];
     particles.erase(particles.begin() + in_index3);
+    #pragma omp atomic
     accepted32_count_++;
     if (debug_printout_) {
       std::cout << in << "->" << out << ";" << srts << std::endl;
     }
   } else {
+    #pragma omp atomic
     rejected32_count_++;
   }
 }
