@@ -245,7 +245,7 @@ int main(int argc, char **argv) {
 
   const int N_warmup = 1E6, N_decorrelate = 2E2, N_printout = 1E4;
   constexpr double max_mass = 2.5;  // GeV
-  sample("../../hyper_from_Jan/hypersurface/spinodal_hyper_pbpb_elb3.5_39-2.f16",
+  sample("../../surface_from_Jan/spinodal_hyper_pbpb_elb3.5_28-5.f16",
          HyperSurfacePatch::InputFormat::Steinheimer,
          output_file, N_warmup, N_decorrelate, N_printout, max_mass, Epatch);
 }

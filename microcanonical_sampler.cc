@@ -197,14 +197,18 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface,
   std::cout << "Sum of masses: " << m_sum << std::endl;
   for (const auto x : specie_quantity) {
     for (size_t i = 0; i < x.second; i++) {
-      particles.push_back({smash::FourVector(), x.first, 0});
+      const size_t cell = smash::random::uniform_int(size_t(),
+                              hypersurface.Ncells() - 1);
+      particles.push_back({smash::FourVector(), x.first, cell});
     }
   }
   if (particles.size() < 2 && hypersurface.pmu().sqr() >
       2 * lightest_species_BSQ[neutral_meson_BSQ]->mass()) {
     for (size_t i = 0; i < 3; i++) {
+      const size_t cell = smash::random::uniform_int(size_t(),
+                              hypersurface.Ncells() - 1);
       particles.push_back({smash::FourVector(),
-                          lightest_species_BSQ[neutral_meson_BSQ], 0});
+                          lightest_species_BSQ[neutral_meson_BSQ], cell});
     }
   }
   // Assign some random momenta
