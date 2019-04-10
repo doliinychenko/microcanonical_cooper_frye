@@ -615,6 +615,103 @@ void MicrocanonicalSampler::random_three_to_two(
   }
 }
 
+void MicrocanonicalSampler::random_two_to_two(
+    const HyperSurfacePatch &hypersurface,
+    SamplerParticleList &particles) {
+  const size_t Npart = particles.size();
+  const size_t Ncells = hypersurface.Ncells();
+  // Choose 2 random particles
+  size_t in_index1, in_index2;
+  in_index1 = smash::random::uniform_int<size_t>(0, Npart - 1);
+  do {
+    in_index2 = smash::random::uniform_int<size_t>(0, Npart - 1);
+  } while (in_index1 == in_index2);
+  SamplerParticleList in{particles[in_index1], particles[in_index2]};
+  QuantumNumbers cons(in);
+  const smash::FourVector momentum_total = cons.momentum;
+  const double srts = momentum_total.abs();
+  const smash::ThreeVector beta_cm = momentum_total.velocity();
+
+  // Choose channel
+  std::array<int, 3> BSQ{cons.B, cons.S, cons.Q};
+  size_t N2 = N_available_channels2(BSQ, srts);
+
+  SamplerParticleList out;
+  out.clear();
+  out.resize(2);
+  const std::array<size_t, 2> cell = {
+      smash::random::uniform_int<size_t>(0, Ncells - 1),
+      smash::random::uniform_int<size_t>(0, Ncells - 1)};
+  size_t i_channel = smash::random::uniform_int<size_t>(0, N2 - 1);
+  std::array<smash::ParticleTypePtr, 2> out_types = channels2_[BSQ][i_channel];
+  const double R2in = compute_R2(srts, in[0].type->mass(), in[1].type->mass());
+  const double R2out = compute_R2(srts, out_types[0]->mass(), out_types[1]->mass());
+  out[0] = {smash::FourVector(), out_types[0], cell[0]};
+  out[1] = {smash::FourVector(), out_types[1], cell[1]};
+
+  const double m1 = out[0].type->mass(), m2 = out[1].type->mass();
+  const double p_cm = smash::pCM(srts, m1, m2);
+  smash::Angles phitheta;
+  phitheta.distribute_isotropically();
+  const smash::ThreeVector mom = p_cm * phitheta.threevec();
+  const double mom2 = p_cm * p_cm;
+  smash::FourVector p1(std::sqrt(mom2 + m1 * m1), mom),
+      p2(std::sqrt(mom2 + m2 * m2), -mom);
+  for (SamplerParticle &part : out) {
+    part.momentum = part.momentum.LorentzBoost(-beta_cm);
+  }
+  if (debug_printout_ == 3) {
+    std::cout << "In: " << in[0].momentum << " " << in[1].momentum << std::endl;
+    std::cout << "Out: " << out[0].momentum << " " << out[1].momentum << " "
+              << std::endl;
+  }
+  // At this point the proposal function is set
+  // Further is the calculation of probability to accept it
+  const double phase_space_factor = R2out / R2in;
+  const double spin_factor = compute_spin_factor(in, out);
+
+  double combinatorial_factor = 1.0;
+  if (out[0].type == out[1].type) {
+    combinatorial_factor /= 2;
+  }
+  if (in[0].type == in[1].type) {
+    combinatorial_factor *= 2;
+  }
+
+  double energy_factor = 1.0;
+  for (const SamplerParticle &p : out) {
+    energy_factor *= p.momentum.Dot(hypersurface.cell(p.cell_index).dsigma);
+  }
+  for (const SamplerParticle &p : in) {
+    energy_factor /= p.momentum.Dot(hypersurface.cell(p.cell_index).dsigma);
+  }
+
+  double cells_factor = compute_cells_factor(in, out, hypersurface);
+
+  const double w = phase_space_factor * spin_factor * combinatorial_factor *
+                   energy_factor * cells_factor;
+
+  if (debug_printout_ == 1) {
+    std::cout << "Trying 2->2 (" << in << "->" << out << ") with w = " << w
+              << "; ph. sp. factor * 1e6 = " << phase_space_factor * 1.e6
+              << "; spin_factor = " << spin_factor
+              << "; comb. factor = " << combinatorial_factor
+              << "; energy factor = " << energy_factor
+              << "; cell factor = " << cells_factor << "; srts = " << srts
+              << std::endl;
+  }
+
+  // No need to do it: w = std::min(1.0, w);
+  if (smash::random::canonical() < w) {
+    particles[in_index1] = out[0];
+    particles[in_index2] = out[1];
+    if (debug_printout_ == 1) {
+      std::cout << in << "->" << out << ";" << srts << std::endl;
+    }
+  }
+}
+
+
 void MicrocanonicalSampler::renormalize_momenta(
     const smash::FourVector &required_total_momentum,
     SamplerParticleList &particles) {

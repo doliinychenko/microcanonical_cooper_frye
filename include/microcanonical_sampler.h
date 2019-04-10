@@ -86,6 +86,8 @@ private:
                            SamplerParticleList &particles);
   void random_three_to_two(const HyperSurfacePatch &hypersurface,
                            SamplerParticleList &particles);
+  void random_two_to_two(const HyperSurfacePatch &hypersurface,
+                           SamplerParticleList &particles);
   void renormalize_momenta(const smash::FourVector &required_4mom,
                            SamplerParticleList &particles);
 
