@@ -50,6 +50,8 @@ public:
                   SamplerParticleList &particles);
   void one_markov_chain_step(const HyperSurfacePatch &hypersurface,
                              SamplerParticleList &particles);
+  void random_two_to_two(const HyperSurfacePatch &hypersurface,
+                           SamplerParticleList &particles);
 
   /// Set the level of debug printout
   void set_debug_printout(int a) { debug_printout_ = a; }
@@ -85,8 +87,6 @@ private:
   void random_two_to_three(const HyperSurfacePatch &hypersurface,
                            SamplerParticleList &particles);
   void random_three_to_two(const HyperSurfacePatch &hypersurface,
-                           SamplerParticleList &particles);
-  void random_two_to_two(const HyperSurfacePatch &hypersurface,
                            SamplerParticleList &particles);
   void renormalize_momenta(const smash::FourVector &required_4mom,
                            SamplerParticleList &particles);

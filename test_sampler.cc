@@ -125,6 +125,9 @@ void sample(const std::string hypersurface_input_file,
     for (int i = 0; i < N_warmup; ++i) {
       sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
     }
+    for (int i = 0; i < N_warmup; ++i) {
+      sampler.random_two_to_two(patches[i_patch], particles[i_patch]);
+    }
   }
   std::cout << "Finished warming up." << std::endl;
   size_t total_particles = 0;
@@ -145,6 +148,9 @@ void sample(const std::string hypersurface_input_file,
     for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
       for (int i = 0; i < N_decorrelate; ++i) {
         sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
+      }
+      for (int i = 0; i < N_decorrelate; ++i) {
+        sampler.random_two_to_two(patches[i_patch], particles[i_patch]);
       }
     }
     // print out
