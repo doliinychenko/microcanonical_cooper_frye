@@ -199,7 +199,7 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface,
     for (size_t i = 0; i < x.second; i++) {
       const size_t cell = smash::random::uniform_int(size_t(),
                               hypersurface.Ncells() - 1);
-      particles.push_back({smash::FourVector(), x.first, cell});
+      particles.push_back({smash::FourVector(), x.first, cell, false});
     }
   }
   if (particles.size() < 2 && hypersurface.pmu().sqr() >
@@ -208,7 +208,8 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface,
       const size_t cell = smash::random::uniform_int(size_t(),
                               hypersurface.Ncells() - 1);
       particles.push_back({smash::FourVector(),
-                          lightest_species_BSQ[neutral_meson_BSQ], cell});
+                          lightest_species_BSQ[neutral_meson_BSQ], cell,
+                          false});
     }
   }
   // Assign some random momenta
@@ -437,9 +438,9 @@ void MicrocanonicalSampler::random_two_to_three(
   const double R3 = compute_R3(
       srts, out_types[0]->mass(), out_types[1]->mass(), out_types[2]->mass());
   const double R2 = compute_R2(srts, in[0].type->mass(), in[1].type->mass());
-  out[0] = {smash::FourVector(), out_types[0], cell[0]};
-  out[1] = {smash::FourVector(), out_types[1], cell[1]};
-  out[2] = {smash::FourVector(), out_types[2], cell[2]};
+  out[0] = {smash::FourVector(), out_types[0], cell[0], true};
+  out[1] = {smash::FourVector(), out_types[1], cell[1], true};
+  out[2] = {smash::FourVector(), out_types[2], cell[2], true};
 
   sample_3body_phase_space(srts, out[0], out[1], out[2]);
   for (SamplerParticle &part : out) {
@@ -557,8 +558,8 @@ void MicrocanonicalSampler::random_three_to_two(
       srts, in[0].type->mass(), in[1].type->mass(), in[2].type->mass());
   const double R2 =
       compute_R2(srts, out_types[0]->mass(), out_types[1]->mass());
-  out[0] = {smash::FourVector(), out_types[0], cell[0]};
-  out[1] = {smash::FourVector(), out_types[1], cell[1]};
+  out[0] = {smash::FourVector(), out_types[0], cell[0], true};
+  out[1] = {smash::FourVector(), out_types[1], cell[1], true};
 
   const double m1 = out[0].type->mass(), m2 = out[1].type->mass();
   const double p_cm = smash::pCM(srts, m1, m2);
@@ -711,8 +712,9 @@ void MicrocanonicalSampler::test_3body_phase_space_sampling() {
   const smash::ParticleTypePtr pi = &smash::ParticleType::find(0x111),
                                N = &smash::ParticleType::find(0x2212),
                                Delta = &smash::ParticleType::find(0x2224);
-  SamplerParticle a{smash::FourVector(), pi, 0}, b{smash::FourVector(), N, 0},
-                  c{smash::FourVector(), Delta, 0};
+  SamplerParticle a{smash::FourVector(), pi, 0, false},
+                  b{smash::FourVector(), N, 0, false},
+                  c{smash::FourVector(), Delta, 0, false};
   for (size_t i = 0; i < 100000; i++) {
     MicrocanonicalSampler::sample_3body_phase_space(sqrts, a, b, c);
     std::cout << a.momentum << b.momentum << c.momentum << std::endl;

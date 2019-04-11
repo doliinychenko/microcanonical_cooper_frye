@@ -16,6 +16,7 @@ public:
     smash::FourVector momentum;
     smash::ParticleTypePtr type;
     size_t cell_index;
+    bool decorrelated;
   };
   typedef std::vector<SamplerParticle> SamplerParticleList;
 
