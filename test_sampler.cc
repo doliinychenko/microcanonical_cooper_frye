@@ -279,7 +279,7 @@ int main(int argc, char **argv) {
     usage(EXIT_FAILURE, progname);
   }
 
-  const size_t N_warmup = 1E6, N_decorrelate = 2E2, N_printout = 1E4;
+  const size_t N_warmup = 1E6, N_decorrelate = 273, N_printout = 1E4;
   constexpr double max_mass = 2.5;  // GeV
   sample("../../surface_from_Jan/spinodal_hyper_pbpb_elb3.5_28-5.f16",
          HyperSurfacePatch::InputFormat::Steinheimer,
