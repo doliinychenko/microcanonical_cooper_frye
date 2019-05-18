@@ -142,6 +142,26 @@ void sample(const std::string hypersurface_input_file,
   auto patches = hyper.split(E_patch);
   size_t number_of_patches = patches.size();
 
+  // Save labelled patches
+  std::ofstream patches_output_file("hypersurface_labelled.dat", std::ios::out);
+  for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+    for (const auto a_cell : patches[i_patch].cells()) {
+      const ThreeVector v = a_cell.u.velocity();
+      patches_output_file << a_cell.r.x1() << " "
+                          << a_cell.r.x2() << " "
+                          << a_cell.r.x3() << " "
+                          << a_cell.T << " "
+                          << a_cell.muB << " "
+                          << a_cell.muS << " "
+                          << v.x1() << " " << v.x2() << " " << v.x3() << " "
+                          << a_cell.dsigma.x0() << " "
+                          << a_cell.dsigma.x1() << " "
+                          << a_cell.dsigma.x2() << " "
+                          << a_cell.dsigma.x3() << " "
+                          << i_patch << std::endl;
+    }
+  }
+
   std::vector<MicrocanonicalSampler::SamplerParticleList> particles;
   particles.resize(number_of_patches);
 
