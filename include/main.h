@@ -42,7 +42,8 @@ void step_until_sufficient_decorrelation(
  */
 void sample(const std::string hypersurface_input_file,
             HyperSurfacePatch::InputFormat hypersurface_file_format,
-            const std::string output_file, size_t N_warmup,
+            const std::string output_file,
+            const std::string patches_output_filename, size_t N_warmup,
             size_t N_decorrelate, size_t N_printout,
             double max_mass, double Epatch);
 

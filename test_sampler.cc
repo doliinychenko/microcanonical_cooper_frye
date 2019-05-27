@@ -118,7 +118,8 @@ void step_until_sufficient_decorrelation(
 
 void sample(const std::string hypersurface_input_file,
             HyperSurfacePatch::InputFormat hypersurface_file_format,
-            const std::string output_file_name, size_t N_warmup,
+            const std::string output_file_name,
+            const std::string patches_output_filename, size_t N_warmup,
             size_t N_decorrelate, size_t N_printout,
             double max_mass, double E_patch) {
   constexpr bool quantum_statistics = false;
@@ -145,22 +146,26 @@ void sample(const std::string hypersurface_input_file,
   size_t number_of_patches = patches.size();
 
   // Save labelled patches
-  std::ofstream patches_output_file("hypersurface_labelled.dat", std::ios::out);
-  for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
-    for (const auto a_cell : patches[i_patch].cells()) {
-      const ThreeVector v = a_cell.u.velocity();
-      patches_output_file << a_cell.r.x1() << " "
-                          << a_cell.r.x2() << " "
-                          << a_cell.r.x3() << " "
-                          << a_cell.T << " "
-                          << a_cell.muB << " "
-                          << a_cell.muS << " "
-                          << v.x1() << " " << v.x2() << " " << v.x3() << " "
-                          << a_cell.dsigma.x0() << " "
-                          << a_cell.dsigma.x1() << " "
-                          << a_cell.dsigma.x2() << " "
-                          << a_cell.dsigma.x3() << " "
-                          << i_patch << std::endl;
+  if (patches_output_filename != "") {
+     std::cout << "Dumping labeled hypersurface cells to "
+               << patches_output_filename << std::endl;
+    std::ofstream patches_output_file(patches_output_filename, std::ios::out);
+    for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+      for (const auto a_cell : patches[i_patch].cells()) {
+        const ThreeVector v = a_cell.u.velocity();
+        patches_output_file << a_cell.r.x1() << " "
+                            << a_cell.r.x2() << " "
+                            << a_cell.r.x3() << " "
+                            << a_cell.T << " "
+                            << a_cell.muB << " "
+                            << a_cell.muS << " "
+                            << v.x1() << " " << v.x2() << " " << v.x3() << " "
+                            << a_cell.dsigma.x0() << " "
+                            << a_cell.dsigma.x1() << " "
+                            << a_cell.dsigma.x2() << " "
+                            << a_cell.dsigma.x3() << " "
+                            << i_patch << std::endl;
+      }
     }
   }
 
@@ -223,16 +228,21 @@ void usage(const int rc, const std::string &progname) {
   std::printf("\nUsage: %s [option]\n\n", progname.c_str());
   std::printf(
       "  -h, --help              usage information\n\n"
-      "  -p, --particles         <particles_file>,<decaymodes_file>"
-      "                          list of particle species to be sampled in"
-      "                          <particles_file> and their decays in the"
-      "                          <decaymodes_file>, both in SMASH format"
-      "          (see http://theory.gsi.de/~smash/doc/1.6/inputparticles.html)"
+      "  -p, --particles         <particles_file>,<decaymodes_file>\n"
+      "                          list of particle species to be sampled in\n"
+      "                          <particles_file> and their decays in the\n"
+      "                          <decaymodes_file>, both in SMASH format\n"
+      "        (see http://theory.gsi.de/~smash/doc/1.6/inputparticles.html)\n"
       "  -r, --reproduce_1902_09775 reproduce results of arxiv::1902.09775\n"
       "  -t, --test                 run testing functions\n"
       "  -e, --energy_patch         set maximal energy [GeV] in the patch\n"
-      "  -o, --outputfile           output file"
-      " (default: ./sampled_particles.dat)\n\n");
+      "  -o, --outputfile           output file name, where sampled particles\n"
+      "                             coordinates, momenta, and pdg ids\n"
+      "                             will be printed out\n"
+      "                             (default: ./sampled_particles.dat)\n"
+      "  -l, --labeled_hyper_output name of the file to print out the same\n"
+      "                             hypersurface cells that were read in, but\n"
+      "                             with patch labels.\n\n");
   std::exit(rc);
 }
 
@@ -242,7 +252,8 @@ int main(int argc, char **argv) {
        *particles_file = nullptr,
        *decaymodes_file = nullptr;
   double Epatch = 10.0;  // GeV
-  std::string output_file = "sampled_particles.dat";
+  std::string output_file = "sampled_particles.dat",
+              patches_output_filename = "";
 
   constexpr option longopts[] = {
       {"help", no_argument, 0, 'h'},
@@ -251,13 +262,14 @@ int main(int argc, char **argv) {
       {"test", no_argument, 0, 't'},
       {"energy_patch", required_argument, 0, 'e'},
       {"outputfile", required_argument, 0, 'o'},
+      {"labeled_hyper_output", required_argument, 0, 'l'},
       {nullptr, 0, 0, 0}};
 
   const std::string full_progname = std::string(argv[0]);
   int i1 = full_progname.find_last_of("\\/") + 1, i2 = full_progname.size();
   const std::string progname = full_progname.substr(i1, i2);
   int opt = 0;
-  while ((opt = getopt_long(argc, argv, "hp:rte:o:",
+  while ((opt = getopt_long(argc, argv, "hp:rte:o:l:",
           longopts, nullptr)) != -1) {
     switch (opt) {
       case 'h':
@@ -290,6 +302,9 @@ int main(int argc, char **argv) {
       case 'o':
         output_file = optarg;
         break;
+      case 'l':
+        patches_output_filename = optarg;
+        break;
      default:
         usage(EXIT_FAILURE, progname);
     }
@@ -310,5 +325,6 @@ int main(int argc, char **argv) {
   constexpr double max_mass = 2.5;  // GeV
   sample("../../surface_from_Jan/spinodal_hyper_pbpb_elb3.5_28-5.f16",
          HyperSurfacePatch::InputFormat::Steinheimer,
-         output_file, N_warmup, N_decorrelate, N_printout, max_mass, Epatch);
+         output_file, patches_output_filename,
+         N_warmup, N_decorrelate, N_printout, max_mass, Epatch);
 }
