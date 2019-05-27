@@ -96,6 +96,16 @@ void step_until_sufficient_decorrelation(
     std::vector<MicrocanonicalSampler::SamplerParticleList>& particles,
     size_t min_steps_number, double required_decorrelation_degree) {
   size_t number_of_patches = patches.size();
+  // Fixed amount of 2<->3. Forcing decorrelation in 2<->3 leads to a bias
+  // in particle number distribution.
+  #pragma omp parallel for
+  for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+    for (size_t i = 0; i < min_steps_number; ++i) {
+        sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
+    }
+  }
+  // Do 2<->2 until decorrelation. This may bias momentum correlations,
+  // but does not bias multiplicity distribution.
   #pragma omp parallel for
   for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
     for (auto &particle : particles[i_patch]) {
@@ -104,15 +114,15 @@ void step_until_sufficient_decorrelation(
     size_t non_decorr_counter;
     do {
       for (size_t i = 0; i < min_steps_number; ++i) {
-        sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
+        sampler.random_two_to_two(patches[i_patch], particles[i_patch]);
       }
       non_decorr_counter = std::count_if(
           particles[i_patch].begin(), particles[i_patch].end(),
           [](MicrocanonicalSampler::SamplerParticle p) { return !p.decorrelated; });
+      // printf("Patch %lu: not decorrelated %lu/%lu\n", i_patch,
+      //       non_decorr_counter, particles[i_patch].size());
     } while (non_decorr_counter >
              particles[i_patch].size() * required_decorrelation_degree);
-    // printf("Patch %lu: not decorrelated %lu/%lu\n", i_patch,
-    //       non_decorr_counter, particles[i_patch].size());
   }
 }
 
@@ -135,7 +145,7 @@ void sample(const std::string hypersurface_input_file,
    * decorrelation session: 0 is maximally strict, 1 is not strict
    * at all.
    */
-  constexpr double sufficient_decorrelation = 0.1;
+  constexpr double sufficient_decorrelation = 0.01;
 
   HyperSurfacePatch hyper(hypersurface_input_file, hypersurface_file_format,
                           is_sampled_type, quantum_statistics);
@@ -321,7 +331,7 @@ int main(int argc, char **argv) {
   DecayModes::load_decaymodes(pd.second);
   ParticleType::check_consistency();
 
-  const size_t N_warmup = 1E6, N_decorrelate = 273, N_printout = 1E4;
+  const size_t N_warmup = 1E6, N_decorrelate = 300, N_printout = 1E4;
   constexpr double max_mass = 2.5;  // GeV
   sample("../../surface_from_Jan/spinodal_hyper_pbpb_elb3.5_28-5.f16",
          HyperSurfacePatch::InputFormat::Steinheimer,
