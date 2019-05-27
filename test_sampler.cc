@@ -5,6 +5,7 @@
 #include <iostream>
 #include <streambuf>
 #include <string>
+#include <cstring>
 
 #include "main.h"
 #include "microcanonical_sampler.h"
@@ -14,6 +15,7 @@
 #include "smash/pow.h"
 #include "smash/random.h"
 #include "smash/setup_particles_decaymodes.h"
+#include "smash/stringfunctions.h"
 
 using namespace smash;
 
@@ -221,6 +223,11 @@ void usage(const int rc, const std::string &progname) {
   std::printf("\nUsage: %s [option]\n\n", progname.c_str());
   std::printf(
       "  -h, --help              usage information\n\n"
+      "  -p, --particles         <particles_file>,<decaymodes_file>"
+      "                          list of particle species to be sampled in"
+      "                          <particles_file> and their decays in the"
+      "                          <decaymodes_file>, both in SMASH format"
+      "          (see http://theory.gsi.de/~smash/doc/1.6/inputparticles.html)"
       "  -r, --reproduce_1902_09775 reproduce results of arxiv::1902.09775\n"
       "  -t, --test                 run testing functions\n"
       "  -e, --energy_patch         set maximal energy [GeV] in the patch\n"
@@ -231,26 +238,44 @@ void usage(const int rc, const std::string &progname) {
 
 int main(int argc, char **argv) {
   smash::random::set_seed(smash::random::generate_63bit_seed());
-  smash::load_default_particles_and_decaymodes();
-
+  char *particles_decaymodes = nullptr,
+       *particles_file = nullptr,
+       *decaymodes_file = nullptr;
   double Epatch = 10.0;  // GeV
   std::string output_file = "sampled_particles.dat";
 
   constexpr option longopts[] = {
+      {"help", no_argument, 0, 'h'},
+      {"particles", required_argument, 0, 'p'},
       {"reproduce_1902_09775", no_argument, 0, 'r'},
       {"test", no_argument, 0, 't'},
       {"energy_patch", required_argument, 0, 'e'},
       {"outputfile", required_argument, 0, 'o'},
-      {"help", no_argument, 0, 'h'},
       {nullptr, 0, 0, 0}};
 
   const std::string full_progname = std::string(argv[0]);
   int i1 = full_progname.find_last_of("\\/") + 1, i2 = full_progname.size();
   const std::string progname = full_progname.substr(i1, i2);
   int opt = 0;
-  while ((opt = getopt_long(argc, argv, "rte:o:h",
+  while ((opt = getopt_long(argc, argv, "hp:rte:o:",
           longopts, nullptr)) != -1) {
     switch (opt) {
+      case 'h':
+        usage(EXIT_SUCCESS, progname);
+        break;
+      case 'p':
+        {
+          particles_decaymodes = optarg;
+          std::string arg_string(particles_decaymodes);
+          std::vector<std::string> pd_strings = split(arg_string, ',');
+          if (pd_strings.size() != 2) {
+            throw std::invalid_argument(
+                "-p usage: particles_file,decaymodes_file");
+          }
+          particles_file = strdup(pd_strings[0].c_str());
+          decaymodes_file = strdup(pd_strings[1].c_str());
+          break;
+        }
       case 'r':
         reproduce_arxiv_1902_09775();
         std::exit(EXIT_SUCCESS);
@@ -265,10 +290,7 @@ int main(int argc, char **argv) {
       case 'o':
         output_file = optarg;
         break;
-      case 'h':
-        usage(EXIT_SUCCESS, progname);
-        break;
-      default:
+     default:
         usage(EXIT_FAILURE, progname);
     }
   }
@@ -278,6 +300,11 @@ int main(int argc, char **argv) {
     std::cout << argv[0] << ": invalid argument -- '" << argv[optind] << "'\n";
     usage(EXIT_FAILURE, progname);
   }
+
+  auto pd = smash::load_particles_and_decaymodes(particles_file, decaymodes_file);
+  ParticleType::create_type_list(pd.first);
+  DecayModes::load_decaymodes(pd.second);
+  ParticleType::check_consistency();
 
   const size_t N_warmup = 1E6, N_decorrelate = 273, N_printout = 1E4;
   constexpr double max_mass = 2.5;  // GeV
