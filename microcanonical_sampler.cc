@@ -666,8 +666,8 @@ void MicrocanonicalSampler::random_two_to_two(
   phitheta.distribute_isotropically();
   const smash::ThreeVector mom = p_cm * phitheta.threevec();
   const double mom2 = p_cm * p_cm;
-  smash::FourVector p1(std::sqrt(mom2 + m1 * m1), mom),
-      p2(std::sqrt(mom2 + m2 * m2), -mom);
+  out[0].momentum = smash::FourVector(std::sqrt(mom2 + m1 * m1),  mom);
+  out[1].momentum = smash::FourVector(std::sqrt(mom2 + m2 * m2), -mom);
   for (SamplerParticle &part : out) {
     part.momentum = part.momentum.LorentzBoost(-beta_cm);
   }
