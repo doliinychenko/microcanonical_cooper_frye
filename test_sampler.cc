@@ -243,6 +243,10 @@ void usage(const int rc, const std::string &progname) {
       "                          <particles_file> and their decays in the\n"
       "                          <decaymodes_file>, both in SMASH format\n"
       "        (see http://theory.gsi.de/~smash/doc/1.6/inputparticles.html)\n"
+      "  -s, --surface           <surface_file>,<surface_format>\n"
+      "                          File with the list of hypersurface elements\n"
+      "                          and its format: Dima_format,\n"
+      "                          Steinheimer_format, or MUSIC_format\n"
       "  -r, --reproduce_1902_09775 reproduce results of arxiv::1902.09775\n"
       "  -t, --test                 run testing functions\n"
       "  -e, --energy_patch         set maximal energy [GeV] in the patch\n"
@@ -258,16 +262,21 @@ void usage(const int rc, const std::string &progname) {
 
 int main(int argc, char **argv) {
   smash::random::set_seed(smash::random::generate_63bit_seed());
-  char *particles_decaymodes = nullptr,
-       *particles_file = nullptr,
+  char *particles_file = nullptr,
        *decaymodes_file = nullptr;
   double Epatch = 10.0;  // GeV
   std::string output_file = "sampled_particles.dat",
               patches_output_filename = "";
+  std::string hypersurface_input_file(
+      "../../surface_from_Jan/spinodal_hyper_pbpb_elb3.5_28-5.f16");
+  HyperSurfacePatch::InputFormat hypersurface_file_format = 
+      HyperSurfacePatch::InputFormat::Steinheimer;
+
 
   constexpr option longopts[] = {
       {"help", no_argument, 0, 'h'},
       {"particles", required_argument, 0, 'p'},
+      {"surface", required_argument, 0, 's'},
       {"reproduce_1902_09775", no_argument, 0, 'r'},
       {"test", no_argument, 0, 't'},
       {"energy_patch", required_argument, 0, 'e'},
@@ -279,7 +288,7 @@ int main(int argc, char **argv) {
   int i1 = full_progname.find_last_of("\\/") + 1, i2 = full_progname.size();
   const std::string progname = full_progname.substr(i1, i2);
   int opt = 0;
-  while ((opt = getopt_long(argc, argv, "hp:rte:o:l:",
+  while ((opt = getopt_long(argc, argv, "hp:s:rte:o:l:",
           longopts, nullptr)) != -1) {
     switch (opt) {
       case 'h':
@@ -287,8 +296,7 @@ int main(int argc, char **argv) {
         break;
       case 'p':
         {
-          particles_decaymodes = optarg;
-          std::string arg_string(particles_decaymodes);
+          std::string arg_string(optarg);
           std::vector<std::string> pd_strings = split(arg_string, ',');
           if (pd_strings.size() != 2) {
             throw std::invalid_argument(
@@ -296,6 +304,28 @@ int main(int argc, char **argv) {
           }
           particles_file = strdup(pd_strings[0].c_str());
           decaymodes_file = strdup(pd_strings[1].c_str());
+          break;
+        }
+      case 's':
+        {
+          std::string arg_string(optarg);
+          std::vector<std::string> args = split(arg_string, ',');
+          if (args.size() != 2) {
+            usage(EXIT_FAILURE, progname);
+          }
+          hypersurface_input_file = args[0];
+          if (args[1] == "Dima_format") {
+            hypersurface_file_format =
+              HyperSurfacePatch::InputFormat::DimaNaiveFormat;
+          } else if (args[1] == "Steinheimer_format") {
+            hypersurface_file_format =
+              HyperSurfacePatch::InputFormat::Steinheimer;
+          } else if (args[1] == "MUSIC_format") {
+            hypersurface_file_format =
+              HyperSurfacePatch::InputFormat::MUSIC_ASCII_3plus1D;
+          } else {
+            usage(EXIT_FAILURE, progname);
+          }
           break;
         }
       case 'r':
@@ -333,8 +363,7 @@ int main(int argc, char **argv) {
 
   const size_t N_warmup = 1E6, N_decorrelate = 300, N_printout = 1E4;
   constexpr double max_mass = 2.5;  // GeV
-  sample("../../surface_from_Jan/spinodal_hyper_pbpb_elb3.5_28-5.f16",
-         HyperSurfacePatch::InputFormat::Steinheimer,
+  sample(hypersurface_input_file, hypersurface_file_format,
          output_file, patches_output_filename,
          N_warmup, N_decorrelate, N_printout, max_mass, Epatch);
 }
