@@ -14,6 +14,16 @@
 void reproduce_arxiv_1902_09775();
 
 /**
+ * Perform at least min_steps_number Metropolis steps. Repeat until
+ * at least (required_decorrelation_degree)% of particles were updated/
+ */
+void step_until_sufficient_decorrelation(
+    MicrocanonicalSampler& sampler,
+    const std::vector<HyperSurfacePatch>& patches,                                     
+    std::vector<MicrocanonicalSampler::SamplerParticleList>& particles,
+    size_t min_steps_number, double required_decorrelation_degree); 
+
+/**
  * Main sampling routine. Reads the list of cells (hypersurface elements)
  * from hypersurface_input_file of format hypersurface_file_format.
  * Then prepares the sampler and samples.
@@ -32,8 +42,8 @@ void reproduce_arxiv_1902_09775();
  */
 void sample(const std::string hypersurface_input_file,
             HyperSurfacePatch::InputFormat hypersurface_file_format,
-            const std::string output_file, int N_warmup,
-            int N_decorrelate, int N_printout,
+            const std::string output_file, size_t N_warmup,
+            size_t N_decorrelate, size_t N_printout,
             double max_mass, double Epatch);
 
 /// Prints out information about all command-line options

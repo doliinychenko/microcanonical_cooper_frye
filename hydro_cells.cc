@@ -9,8 +9,8 @@
 HyperSurfacePatch::HyperSurfacePatch(
     const std::string &input_file, InputFormat read_in_format,
     const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
-    bool quantum_statistics)
-    : quantum_statistics_(quantum_statistics) {
+    bool q_stat)
+    : quantum_statistics_(q_stat) {
   for (const smash::ParticleType &ptype : smash::ParticleType::list_all()) {
     if (is_sampled(&ptype)) {
       sampled_types_.push_back(&ptype);
@@ -50,11 +50,11 @@ void HyperSurfacePatch::sum_up_totals_from_cells() {
   S_tot_nonint_ = 0.0;
   Q_tot_nonint_ = 0.0;
   pmu_tot_ = smash::FourVector();
-  for (hydro_cell &cell : cells_) {
-    pmu_tot_ += cell.pmu;
-    B_tot_nonint_ += cell.B;
-    S_tot_nonint_ += cell.S;
-    Q_tot_nonint_ += cell.Q;
+  for (hydro_cell &a_cell : cells_) {
+    pmu_tot_ += a_cell.pmu;
+    B_tot_nonint_ += a_cell.B;
+    S_tot_nonint_ += a_cell.S;
+    Q_tot_nonint_ += a_cell.Q;
   }
   B_tot_ = static_cast<int>(std::round(B_tot_nonint_));
   S_tot_ = static_cast<int>(std::round(S_tot_nonint_));
@@ -208,24 +208,26 @@ void HyperSurfacePatch::compute_totals() {
   unsigned int cell_counter = 0;
   #pragma omp parallel for
   for (auto it = cells_.begin(); it < cells_.end(); it++) {
-    hydro_cell& cell = *it;
+    hydro_cell& this_cell = *it;
     #pragma omp atomic
     ++cell_counter;
     if (cell_counter % 100000 == 0) {
       printf("Cell %d\n", cell_counter);
     }
-    cell.pmu = smash::FourVector();
-    cell.B = 0.0;
-    cell.S = 0.0;
-    cell.Q = 0.0;
-    const double T = cell.T;
+    this_cell.pmu = smash::FourVector();
+    this_cell.B = 0.0;
+    this_cell.S = 0.0;
+    this_cell.Q = 0.0;
+    const double T = this_cell.T;
     for (const smash::ParticleTypePtr t : sampled_types_) {
       const double m = t->mass();
-      const double mu = cell.muB * t->baryon_number() +
-                        cell.muS * t->strangeness() + cell.muQ * t->charge();
+      const double mu = this_cell.muB * t->baryon_number() +
+                        this_cell.muS * t->strangeness() +
+                        this_cell.muQ * t->charge();
       // dsigma in the frame, where umu = (1, 0, 0, 0)
       // dsigma[0] in this frame should be equal to dsigma_mu u^mu in any frame
-      smash::FourVector dsigma = cell.dsigma.LorentzBoost(cell.u.velocity());
+      smash::FourVector dsigma = this_cell.dsigma.LorentzBoost(
+                                                       this_cell.u.velocity());
       const double z = m / T;
       double mu_m_over_T = (mu - m) / T;
       if (mu_m_over_T > 0 and quantum_statistics_) {
@@ -267,22 +269,22 @@ void HyperSurfacePatch::compute_totals() {
 
       const double number_from_cell = x1 * dsigma.x0() *
                                       t->pdgcode().spin_degeneracy();
-      cell.B += t->baryon_number() * number_from_cell;
-      cell.S += t->strangeness() * number_from_cell;
-      cell.Q += t->charge() * number_from_cell;
+      this_cell.B += t->baryon_number() * number_from_cell;
+      this_cell.S += t->strangeness() * number_from_cell;
+      this_cell.Q += t->charge() * number_from_cell;
       smash::FourVector pmu_cell(dsigma.x0() * x2, -dsigma.x1() * x3,
                                  -dsigma.x2() * x3, -dsigma.x3() * x3);
       pmu_cell *= t->pdgcode().spin_degeneracy();
-      pmu_cell = pmu_cell.LorentzBoost(-cell.u.velocity());
-      cell.pmu += pmu_cell;
+      pmu_cell = pmu_cell.LorentzBoost(-this_cell.u.velocity());
+      this_cell.pmu += pmu_cell;
       // std::cout << t.name() << " number: " << number_from_cell << std::endl;
       // std::cout << t.name() << ": " << pmu_cell << std::endl;
     }
     const double a = T * T * T * factor;
-    cell.pmu *= T * a;
-    cell.B *= a;
-    cell.S *= a;
-    cell.Q *= a;
+    this_cell.pmu *= T * a;
+    this_cell.B *= a;
+    this_cell.S *= a;
+    this_cell.Q *= a;
   }
   this->sum_up_totals_from_cells();
 }
@@ -292,11 +294,11 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
   // They are needed for clustering metric
   double mean_T = 0.0, mean_muB = 0.0,
          mean_T_sqr = 0.0, mean_muB_sqr = 0.0;
-  for (const HyperSurfacePatch::hydro_cell &cell : cells_) {
-    mean_T += cell.T;
-    mean_muB += cell.muB;
-    mean_T_sqr += cell.T * cell.T;
-    mean_muB_sqr += cell.muB * cell.muB;
+  for (const HyperSurfacePatch::hydro_cell &this_cell : cells_) {
+    mean_T += this_cell.T;
+    mean_muB += this_cell.muB;
+    mean_T_sqr += this_cell.T * this_cell.T;
+    mean_muB_sqr += this_cell.muB * this_cell.muB;
   }
   mean_T /= Ncells();
   mean_muB /= Ncells();

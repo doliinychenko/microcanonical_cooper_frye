@@ -26,7 +26,7 @@ void reproduce_arxiv_1902_09775() {
   };
 
   constexpr bool quantum_statistics = false;
-  const int N_warmup = 1E6, N_decorrelate = 2E2, N_printout = 1E5;
+  const size_t N_warmup = 1E6, N_decorrelate = 2E2, N_printout = 1E5;
   const std::string hypersurface_input_file =
       "../hydro_cells_reproduce_arxiv1902.09775";
   const HyperSurfacePatch::InputFormat format =
@@ -47,7 +47,7 @@ void reproduce_arxiv_1902_09775() {
   std::cout << "# Initializing the sampler " << std::endl;
   sampler.initialize(hyper, particles);
   std::cout << "# Warming up." << std::endl;
-  for (int i = 0; i < N_warmup; ++i) {
+  for (size_t i = 0; i < N_warmup; ++i) {
     sampler.one_markov_chain_step(hyper, particles);
   }
   std::cout << "# Finished warming up." << std::endl;
@@ -58,8 +58,8 @@ void reproduce_arxiv_1902_09775() {
   }
   std::cout << std::endl;
 
-  for (int j = 0; j < N_printout; j++) {
-    for (int i = 0; i < N_decorrelate; ++i) {
+  for (size_t j = 0; j < N_printout; j++) {
+    for (size_t i = 0; i < N_decorrelate; ++i) {
       sampler.one_markov_chain_step(hyper, particles);
     }
     // Count every particle type in every cell
@@ -88,10 +88,36 @@ void reproduce_arxiv_1902_09775() {
   assert(cons.Q == hyper.Q());
 }
 
+void step_until_sufficient_decorrelation(
+    MicrocanonicalSampler& sampler,
+    const std::vector<HyperSurfacePatch>& patches,                                     
+    std::vector<MicrocanonicalSampler::SamplerParticleList>& particles,
+    size_t min_steps_number, double required_decorrelation_degree) {
+  size_t number_of_patches = patches.size();
+  #pragma omp parallel for
+  for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+    for (auto &particle : particles[i_patch]) {
+      particle.decorrelated = false;
+    }
+    size_t non_decorr_counter;
+    do {
+      for (size_t i = 0; i < min_steps_number; ++i) {
+        sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
+      }
+      non_decorr_counter = std::count_if(
+          particles[i_patch].begin(), particles[i_patch].end(),
+          [](MicrocanonicalSampler::SamplerParticle p) { return !p.decorrelated; });
+    } while (non_decorr_counter >
+             particles[i_patch].size() * required_decorrelation_degree);
+    // printf("Patch %lu: not decorrelated %lu/%lu\n", i_patch,
+    //       non_decorr_counter, particles[i_patch].size());
+  }
+}
+
 void sample(const std::string hypersurface_input_file,
             HyperSurfacePatch::InputFormat hypersurface_file_format,
-            const std::string output_file_name, int N_warmup,
-            int N_decorrelate, int N_printout,
+            const std::string output_file_name, size_t N_warmup,
+            size_t N_decorrelate, size_t N_printout,
             double max_mass, double E_patch) {
   constexpr bool quantum_statistics = false;
   /**
@@ -101,6 +127,12 @@ void sample(const std::string hypersurface_input_file,
   auto is_sampled_type = [&](const smash::ParticleTypePtr t) {
     return t->is_hadron() && t->mass() < max_mass;
   };
+  /**
+   * Percentage of particles that are allowed to be untouched after a
+   * decorrelation session: 0 is maximally strict, 1 is not strict
+   * at all.
+   */
+  constexpr double sufficient_decorrelation = 0.1;
 
   HyperSurfacePatch hyper(hypersurface_input_file, hypersurface_file_format,
                           is_sampled_type, quantum_statistics);
@@ -109,6 +141,26 @@ void sample(const std::string hypersurface_input_file,
 
   auto patches = hyper.split(E_patch);
   size_t number_of_patches = patches.size();
+
+  // Save labelled patches
+  std::ofstream patches_output_file("hypersurface_labelled.dat", std::ios::out);
+  for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+    for (const auto a_cell : patches[i_patch].cells()) {
+      const ThreeVector v = a_cell.u.velocity();
+      patches_output_file << a_cell.r.x1() << " "
+                          << a_cell.r.x2() << " "
+                          << a_cell.r.x3() << " "
+                          << a_cell.T << " "
+                          << a_cell.muB << " "
+                          << a_cell.muS << " "
+                          << v.x1() << " " << v.x2() << " " << v.x3() << " "
+                          << a_cell.dsigma.x0() << " "
+                          << a_cell.dsigma.x1() << " "
+                          << a_cell.dsigma.x2() << " "
+                          << a_cell.dsigma.x3() << " "
+                          << i_patch << std::endl;
+    }
+  }
 
   std::vector<MicrocanonicalSampler::SamplerParticleList> particles;
   particles.resize(number_of_patches);
@@ -119,16 +171,8 @@ void sample(const std::string hypersurface_input_file,
   }
 
   std::cout << "Warming up." << std::endl;
-  #pragma omp parallel for
-  for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
-    printf("Patch %lu\n", i_patch);
-    for (int i = 0; i < N_warmup; ++i) {
-      sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
-    }
-    for (int i = 0; i < N_warmup; ++i) {
-      sampler.random_two_to_two(patches[i_patch], particles[i_patch]);
-    }
-  }
+  step_until_sufficient_decorrelation(sampler, patches, particles,
+                                      N_warmup, sufficient_decorrelation);
   std::cout << "Finished warming up." << std::endl;
   size_t total_particles = 0;
   for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
@@ -142,17 +186,9 @@ void sample(const std::string hypersurface_input_file,
     throw std::runtime_error("Can't open the output file.");
   }
 
-  for (int j = 0; j < N_printout; j++) {
-    // decorrelate
-    #pragma omp parallel for
-    for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
-      for (int i = 0; i < N_decorrelate; ++i) {
-        sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
-      }
-      for (int i = 0; i < N_decorrelate; ++i) {
-        sampler.random_two_to_two(patches[i_patch], particles[i_patch]);
-      }
-    }
+  for (size_t j = 0; j < N_printout; j++) {
+    step_until_sufficient_decorrelation(sampler, patches, particles,
+                                        N_decorrelate, sufficient_decorrelation);
     // print out
     if (j % 10000 == 0 && j != 0) {
       std::cout << "sample " << j << std::endl;
@@ -243,7 +279,7 @@ int main(int argc, char **argv) {
     usage(EXIT_FAILURE, progname);
   }
 
-  const int N_warmup = 1E6, N_decorrelate = 2E2, N_printout = 1E4;
+  const size_t N_warmup = 1E6, N_decorrelate = 273, N_printout = 1E4;
   constexpr double max_mass = 2.5;  // GeV
   sample("../../surface_from_Jan/spinodal_hyper_pbpb_elb3.5_28-5.f16",
          HyperSurfacePatch::InputFormat::Steinheimer,

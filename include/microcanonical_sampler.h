@@ -16,6 +16,7 @@ public:
     smash::FourVector momentum;
     smash::ParticleTypePtr type;
     size_t cell_index;
+    bool decorrelated;
   };
   typedef std::vector<SamplerParticle> SamplerParticleList;
 
@@ -111,8 +112,8 @@ private:
   std::map<std::array<int, 3>, std::vector<double>> thresholds3_, thresholds2_;
   int debug_printout_;
   bool quantum_statistics_;
-  int accepted23_count_ = 0, accepted32_count_ = 0, rejected23_count_ = 0,
-      rejected32_count_ = 0;
+  long long int accepted23_count_ = 0, accepted32_count_ = 0,
+      rejected23_count_ = 0, rejected32_count_ = 0;
 };
 
 /// Convenient printout of the SamplerParticleList
