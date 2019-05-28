@@ -361,7 +361,7 @@ int main(int argc, char **argv) {
   DecayModes::load_decaymodes(pd.second);
   ParticleType::check_consistency();
 
-  const size_t N_warmup = 1E6, N_decorrelate = 300, N_printout = 1E4;
+  const size_t N_warmup = 1E6, N_decorrelate = 500, N_printout = 1E4;
   constexpr double max_mass = 2.5;  // GeV
   sample(hypersurface_input_file, hypersurface_file_format,
          output_file, patches_output_filename,
