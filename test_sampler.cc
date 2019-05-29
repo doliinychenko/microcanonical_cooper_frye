@@ -247,6 +247,7 @@ void usage(const int rc, const std::string &progname) {
       "                          File with the list of hypersurface elements\n"
       "                          and its format: Dima_format,\n"
       "                          Steinheimer_format, or MUSIC_format\n"
+      "  -n, --nevents           number of sampled instances to output\n"
       "  -r, --reproduce_1902_09775 reproduce results of arxiv::1902.09775\n"
       "  -t, --test                 run testing functions\n"
       "  -e, --energy_patch         set maximal energy [GeV] in the patch\n"
@@ -265,6 +266,7 @@ int main(int argc, char **argv) {
   char *particles_file = nullptr,
        *decaymodes_file = nullptr;
   double Epatch = 10.0;  // GeV
+  size_t N_printout = 1E4;
   std::string output_file = "sampled_particles.dat",
               patches_output_filename = "";
   std::string hypersurface_input_file(
@@ -277,6 +279,7 @@ int main(int argc, char **argv) {
       {"help", no_argument, 0, 'h'},
       {"particles", required_argument, 0, 'p'},
       {"surface", required_argument, 0, 's'},
+      {"nevents", required_argument, 0, 'n'},
       {"reproduce_1902_09775", no_argument, 0, 'r'},
       {"test", no_argument, 0, 't'},
       {"energy_patch", required_argument, 0, 'e'},
@@ -288,7 +291,7 @@ int main(int argc, char **argv) {
   int i1 = full_progname.find_last_of("\\/") + 1, i2 = full_progname.size();
   const std::string progname = full_progname.substr(i1, i2);
   int opt = 0;
-  while ((opt = getopt_long(argc, argv, "hp:s:rte:o:l:",
+  while ((opt = getopt_long(argc, argv, "hp:s:n:rte:o:l:",
           longopts, nullptr)) != -1) {
     switch (opt) {
       case 'h':
@@ -328,6 +331,9 @@ int main(int argc, char **argv) {
           }
           break;
         }
+      case 'n':
+        N_printout = std::stoi(optarg);
+        break;
       case 'r':
         reproduce_arxiv_1902_09775();
         std::exit(EXIT_SUCCESS);
@@ -361,7 +367,7 @@ int main(int argc, char **argv) {
   DecayModes::load_decaymodes(pd.second);
   ParticleType::check_consistency();
 
-  const size_t N_warmup = 1E6, N_decorrelate = 500, N_printout = 1E4;
+  const size_t N_warmup = 1E6, N_decorrelate = 500;
   constexpr double max_mass = 2.5;  // GeV
   sample(hypersurface_input_file, hypersurface_file_format,
          output_file, patches_output_filename,
