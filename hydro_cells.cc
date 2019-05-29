@@ -368,10 +368,10 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
     });
 
     // (3) Collect cells to patch until energy is enough or no cells left
-    double energy_patch = 0.0;
+    smash::FourVector pmu_patch = smash::FourVector();
     std::vector<hydro_cell>::iterator cluster_start = nonclustered_begin;
-    while (energy_patch < E_patch_max && nonclustered_begin != cells_.end()) {
-      energy_patch += nonclustered_begin->pmu.x0();
+    while (pmu_patch.abs() < E_patch_max && nonclustered_begin != cells_.end()) {
+      pmu_patch += nonclustered_begin->pmu;
       std::advance(nonclustered_begin, 1);
     }
 /*
