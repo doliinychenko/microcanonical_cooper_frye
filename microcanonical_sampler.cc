@@ -202,9 +202,9 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface,
       particles.push_back({smash::FourVector(), x.first, cell, false});
     }
   }
-  if (particles.size() < 2 && hypersurface.pmu().sqr() >
+  if (particles.size() < 2 && hypersurface.pmu().abs() >
       2 * lightest_species_BSQ[neutral_meson_BSQ]->mass()) {
-    for (size_t i = 0; i < 3; i++) {
+    for (size_t i = 0; i < 2; i++) {
       const size_t cell = smash::random::uniform_int(size_t(),
                               hypersurface.Ncells() - 1);
       particles.push_back({smash::FourVector(),
