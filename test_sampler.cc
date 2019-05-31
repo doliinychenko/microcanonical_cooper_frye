@@ -335,6 +335,7 @@ int main(int argc, char **argv) {
         N_printout = std::stoi(optarg);
         break;
       case 'r':
+        smash::load_default_particles_and_decaymodes();
         reproduce_arxiv_1902_09775();
         std::exit(EXIT_SUCCESS);
       case 't':
