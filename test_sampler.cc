@@ -271,7 +271,7 @@ int main(int argc, char **argv) {
               patches_output_filename = "";
   std::string hypersurface_input_file(
       "../../surface_from_Jan/spinodal_hyper_pbpb_elb3.5_28-5.f16");
-  HyperSurfacePatch::InputFormat hypersurface_file_format = 
+  HyperSurfacePatch::InputFormat hypersurface_file_format =
       HyperSurfacePatch::InputFormat::Steinheimer;
 
 
@@ -288,7 +288,8 @@ int main(int argc, char **argv) {
       {nullptr, 0, 0, 0}};
 
   const std::string full_progname = std::string(argv[0]);
-  int i1 = full_progname.find_last_of("\\/") + 1, i2 = full_progname.size();
+  const int i1 = full_progname.find_last_of("\\/") + 1,
+            i2 = full_progname.size();
   const std::string progname = full_progname.substr(i1, i2);
   int opt = 0;
   while ((opt = getopt_long(argc, argv, "hp:s:n:rte:o:l:",
