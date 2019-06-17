@@ -289,6 +289,26 @@ void HyperSurfacePatch::compute_totals() {
   this->sum_up_totals_from_cells();
 }
 
+std::vector<int> HyperSurfacePatch::sample_multinomial(int sum,
+                                                const std::vector<double> &v) {
+  // Normalize vector v to have sum(v) = 1
+  double v_sum = 0.0;
+  for (const double vi : v) {
+    v_sum += vi;
+  }
+  // Now probabilities are v[i] / v_sum
+  std::vector<int> result;
+  for (const double vi : v) {
+    int sampled = smash::random::binomial(sum, vi / v_sum);
+    v_sum -= vi;
+    sum -= sampled;
+    result.push_back(sampled);
+  }
+  assert(sum == 0);
+  assert(result.size() == v.size());
+  return result;
+}
+
 std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
   // Compute variances of temperature and muB on the hypersurface
   // They are needed for clustering metric
@@ -399,6 +419,84 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
     patch_counter++;
     std::cout << "Patch " << patch_counter << ". " << patches.back() << std::endl;
   }
+
+
+  /**
+   *  At this point there may be a mismatch between the total quantum numbers
+   *  of the hypersurface and sum of the quantum numbers of patches. For
+   *  example, suppose one has 10 patches with average baryon numbers of B_i =
+   *  0.9. Total baryon number should be B_hyper = 9. For sampling B_i should
+   *  be integers, because only integer numbers of particles can be sampled.
+   *
+   *  Simple rounding of B_i to 1 does not work, because then sum of B_i will
+   *  be 10 instead of 9. Sampling 0/1 with 10/90 % probability is not good
+   *  either: there are always chances to get the wrong sum. I solve this
+   *  problem in the following ad hoc way.
+   *
+   *  The integer part of B_i is separated beforehand: B_i = trunc(B_i) + dB_i.
+   *  Then the sum of dB_i should be B = B_hyper - sum(trunc(B_i)). So I sample
+   *  vector(dB_i_integer) = Multinomial(B, vector(dB_i)). Then the sum
+   *  over patches is guaranteed to be right.
+   */
+  double B_hyper = 0.0, S_hyper = 0.0, Q_hyper = 0.0;
+  int B = 0, S = 0, Q = 0;
+  std::vector<double> dB, dS, dQ;
+  std::cout << "Making sure patches have integer quantum numbers and they "
+            << "sum up to the ones of the whole hypersurface." << std::endl;
+  for (const HyperSurfacePatch &patch : patches) {
+    B_hyper += patch.B_nonint();
+    S_hyper += patch.S_nonint();
+    Q_hyper += patch.Q_nonint();
+    B += static_cast<int>(std::trunc(patch.B_nonint()));
+    S += static_cast<int>(std::trunc(patch.S_nonint()));
+    Q += static_cast<int>(std::trunc(patch.Q_nonint()));
+    dB.push_back(patch.B_nonint() - std::trunc(patch.B_nonint()));
+    dS.push_back(patch.S_nonint() - std::trunc(patch.S_nonint()));
+    dQ.push_back(patch.Q_nonint() - std::trunc(patch.Q_nonint()));
+  }
+  // Assume that B_hyper is integer, if not round it to nearest integer
+  const int B_hyper_int = static_cast<int>(std::round(B_hyper)),
+            S_hyper_int = static_cast<int>(std::round(S_hyper)),
+            Q_hyper_int = static_cast<int>(std::round(Q_hyper));
+  std::cout << "B_hyper_int = " << B_hyper_int
+            << ", S_hyper_int = " << S_hyper_int
+            << ", Q_hyper_int = " << Q_hyper_int << std::endl;
+  B = B_hyper_int - B;
+  S = S_hyper_int - S;
+  Q = Q_hyper_int - Q;
+
+  std::vector<int> dB_int = sample_multinomial(B, dB),
+                   dS_int = sample_multinomial(S, dS),
+                   dQ_int = sample_multinomial(Q, dQ);
+
+  const size_t Npatches = patches.size();
+  for (size_t i = 0; i < Npatches; i++) {
+    const int B_patch0 = static_cast<int>(std::trunc(patches[i].B_nonint()));
+    const int S_patch0 = static_cast<int>(std::trunc(patches[i].S_nonint()));
+    const int Q_patch0 = static_cast<int>(std::trunc(patches[i].Q_nonint()));
+    patches[i].set_B(B_patch0 + dB_int[i]);
+    patches[i].set_S(S_patch0 + dS_int[i]);
+    patches[i].set_Q(Q_patch0 + dQ_int[i]);
+    std::cout << "Patch " << i << ", (nonint / int / added)"
+              << ": B (" << patches[i].B_nonint()
+                         << " / " << B_patch0 << " / " << dB_int[i] << ")"
+              << ": S (" << patches[i].S_nonint()
+                         << " / " << S_patch0 << " / " << dS_int[i] << ")"
+              << ": Q (" << patches[i].Q_nonint()
+                         << " / " << Q_patch0 << " / " << dQ_int[i] << ")"
+              << std::endl;
+  }
+  // Check if the sum over patches is right
+  int B_hyper_test = 0, S_hyper_test = 0, Q_hyper_test = 0;
+  for (const HyperSurfacePatch &patch : patches) {
+    B_hyper_test += patch.B();
+    S_hyper_test += patch.S();
+    Q_hyper_test += patch.Q();
+  }
+  assert(B_hyper_int == B_hyper_test);
+  assert(S_hyper_int == S_hyper_test);
+  assert(Q_hyper_int == Q_hyper_test);
+
   return patches;
 }
 

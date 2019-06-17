@@ -6,6 +6,7 @@
 
 #include "smash/fourvector.h"
 #include "smash/particletype.h"
+#include "smash/random.h"
 
 class HyperSurfacePatch {
 
@@ -58,12 +59,23 @@ public:
   HyperSurfacePatch(const HyperSurfacePatch &big_patch,
                     std::vector<hydro_cell>::iterator patch_begin,
                     std::vector<hydro_cell>::iterator patch_end);
+  /// Sample multinomial distribution with sum sum and means x_i.
+  static std::vector<int> sample_multinomial(int sum,
+                                             const std::vector<double> &x);
   /// Split into patches with roughly equal energies
   std::vector<HyperSurfacePatch> split(double E_patch);
 
   int B() const { return B_tot_; }
   int S() const { return S_tot_; }
   int Q() const { return Q_tot_; }
+  double B_nonint() const { return B_tot_nonint_; }
+  double S_nonint() const { return S_tot_nonint_; }
+  double Q_nonint() const { return Q_tot_nonint_; }
+  void set_B(int B) { B_tot_ = B; }
+  void set_S(int S) { S_tot_ = S; }
+  void set_Q(int Q) { Q_tot_ = Q; }
+
+
   bool quantum_statistics() const { return quantum_statistics_; }
   smash::FourVector pmu() const { return pmu_tot_; }
   const std::vector<hydro_cell> &cells() const { return cells_; }
