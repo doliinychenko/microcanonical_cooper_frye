@@ -65,7 +65,7 @@ void HyperSurfacePatch::sum_up_totals_from_cells() {
 void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
   std::ifstream infile(filename);
   if (!infile.good()) {
-    throw std::runtime_error("Could not open file");
+    throw std::runtime_error("Could not open file " + filename);
   }
   std::string line;
   size_t line_counter = 0;
@@ -134,7 +134,7 @@ void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
 void HyperSurfacePatch::read_from_Steinheimer_file(const std::string &fname) {
   std::ifstream infile(fname);
   if (!infile.good()) {
-    throw std::runtime_error("Could not open file");
+    throw std::runtime_error("Could not open file " + fname);
   }
   std::cout << "Reading cells from file " << fname << std::endl;
   std::string line;
@@ -178,7 +178,7 @@ void HyperSurfacePatch::read_from_file(const std::string &filename) {
   cells_.clear();
   std::ifstream infile(filename);
   if (!infile.good()) {
-    throw std::runtime_error("Could not open file");
+    throw std::runtime_error("Could not open file " + filename);
   }
   std::string line;
   while (std::getline(infile, line)) {
