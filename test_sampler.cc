@@ -92,7 +92,7 @@ void reproduce_arxiv_1902_09775() {
 
 void step_until_sufficient_decorrelation(
     MicrocanonicalSampler& sampler,
-    const std::vector<HyperSurfacePatch>& patches,                                     
+    const std::vector<HyperSurfacePatch>& patches,
     std::vector<MicrocanonicalSampler::SamplerParticleList>& particles,
     size_t min_steps_number, double required_decorrelation_degree) {
   size_t number_of_patches = patches.size();
@@ -101,7 +101,7 @@ void step_until_sufficient_decorrelation(
   #pragma omp parallel for
   for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
     for (size_t i = 0; i < min_steps_number; ++i) {
-        sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
+      sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
     }
   }
   // Do 2<->2 until decorrelation. This may bias momentum correlations,
