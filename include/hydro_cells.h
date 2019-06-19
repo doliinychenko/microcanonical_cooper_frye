@@ -59,6 +59,10 @@ public:
   HyperSurfacePatch(const HyperSurfacePatch &big_patch,
                     std::vector<hydro_cell>::iterator patch_begin,
                     std::vector<hydro_cell>::iterator patch_end);
+  /// Sample weighted permutation of (sum) ones and zeros with weights v.
+  static std::vector<int> sample_weighted_01_permutation(int sum,
+                                             const std::vector<double> &v);
+
   /// Sample multinomial distribution with sum sum and means x_i.
   static std::vector<int> sample_multinomial(int sum,
                                              const std::vector<double> &x);

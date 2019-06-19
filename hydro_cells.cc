@@ -289,6 +289,33 @@ void HyperSurfacePatch::compute_totals() {
   this->sum_up_totals_from_cells();
 }
 
+std::vector<int> HyperSurfacePatch::sample_weighted_01_permutation(int sum,
+                                                const std::vector<double> &v) {
+  for (const double vi : v) {
+    assert(vi >= 0.0);
+  }
+  // result = { 1, 1, 1, ... total sum times ones ... , 1, 1, 0, 0, 0, ..., 0};
+  const size_t N = v.size();
+  std::vector<int> result(N, 0);
+  std::fill_n(result.begin(), sum, 1);
+  // Metropolis shuffle with weights given by v
+  constexpr size_t N_shuffle = 1E4;
+  for (size_t i = 0; i < N_shuffle; i++) {
+    size_t i1, i2;
+    do {
+      i1 = smash::random::uniform_int(size_t(), N - 1);
+    } while (result[i1]);
+    do {
+      i2 = smash::random::uniform_int(size_t(), N - 1);
+    } while (!result[i2]);
+    // 0 at i1, 1 at i2: if v[i1] >> v[i2] they will be likely swapped
+    if (smash::random::canonical() * v[i2] < v[i1]) {
+      std::iter_swap(result.begin() + i1, result.begin() + i2);
+    }
+  }
+  return result;
+}
+
 std::vector<int> HyperSurfacePatch::sample_multinomial(int sum,
                                                 const std::vector<double> &v) {
   // Normalize vector v to have sum(v) = 1
@@ -433,8 +460,8 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
    *  either: there are always chances to get the wrong sum. I solve this
    *  problem in the following ad hoc way.
    *
-   *  The integer part of B_i is separated beforehand: B_i = trunc(B_i) + dB_i.
-   *  Then the sum of dB_i should be B = B_hyper - sum(trunc(B_i)). So I sample
+   *  The integer part of B_i is separated beforehand: B_i = floor(B_i) + dB_i.
+   *  Then the sum of dB_i should be B = B_hyper - sum(floor(B_i)). So I sample
    *  vector(dB_i_integer) = Multinomial(B, vector(dB_i)). Then the sum
    *  over patches is guaranteed to be right.
    */
@@ -447,12 +474,12 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
     B_hyper += patch.B_nonint();
     S_hyper += patch.S_nonint();
     Q_hyper += patch.Q_nonint();
-    B += static_cast<int>(std::trunc(patch.B_nonint()));
-    S += static_cast<int>(std::trunc(patch.S_nonint()));
-    Q += static_cast<int>(std::trunc(patch.Q_nonint()));
-    dB.push_back(patch.B_nonint() - std::trunc(patch.B_nonint()));
-    dS.push_back(patch.S_nonint() - std::trunc(patch.S_nonint()));
-    dQ.push_back(patch.Q_nonint() - std::trunc(patch.Q_nonint()));
+    B += static_cast<int>(std::floor(patch.B_nonint()));
+    S += static_cast<int>(std::floor(patch.S_nonint()));
+    Q += static_cast<int>(std::floor(patch.Q_nonint()));
+    dB.push_back(patch.B_nonint() - std::floor(patch.B_nonint()));
+    dS.push_back(patch.S_nonint() - std::floor(patch.S_nonint()));
+    dQ.push_back(patch.Q_nonint() - std::floor(patch.Q_nonint()));
   }
   // Assume that B_hyper is integer, if not round it to nearest integer
   const int B_hyper_int = static_cast<int>(std::round(B_hyper)),
@@ -465,15 +492,15 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
   S = S_hyper_int - S;
   Q = Q_hyper_int - Q;
 
-  std::vector<int> dB_int = sample_multinomial(B, dB),
-                   dS_int = sample_multinomial(S, dS),
-                   dQ_int = sample_multinomial(Q, dQ);
+  std::vector<int> dB_int = sample_weighted_01_permutation(B, dB),
+                   dS_int = sample_weighted_01_permutation(S, dS),
+                   dQ_int = sample_weighted_01_permutation(Q, dQ);
 
   const size_t Npatches = patches.size();
   for (size_t i = 0; i < Npatches; i++) {
-    const int B_patch0 = static_cast<int>(std::trunc(patches[i].B_nonint()));
-    const int S_patch0 = static_cast<int>(std::trunc(patches[i].S_nonint()));
-    const int Q_patch0 = static_cast<int>(std::trunc(patches[i].Q_nonint()));
+    const int B_patch0 = static_cast<int>(std::floor(patches[i].B_nonint()));
+    const int S_patch0 = static_cast<int>(std::floor(patches[i].S_nonint()));
+    const int Q_patch0 = static_cast<int>(std::floor(patches[i].Q_nonint()));
     patches[i].set_B(B_patch0 + dB_int[i]);
     patches[i].set_S(S_patch0 + dS_int[i]);
     patches[i].set_Q(Q_patch0 + dQ_int[i]);
