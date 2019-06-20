@@ -28,6 +28,10 @@ HyperSurfacePatch::HyperSurfacePatch(
   case InputFormat::DimaNaiveFormat:
     read_from_file(input_file);
     break;
+  case InputFormat::VISH_2files:
+    // In this case input_file is the name of a folder
+    read_from_VISH_2files(input_file);
+    break;
   default:
     throw std::runtime_error("Unknown input file format");
   }
@@ -200,6 +204,55 @@ void HyperSurfacePatch::read_from_file(const std::string &filename) {
                       {0.0, 0.0, 0.0, 0.0}, T, muB, muS, muQ, 0.0, 0.0, 0.0});
   }
 }
+
+void HyperSurfacePatch::read_from_VISH_2files(const std::string &folder_name) {
+  const std::string infile1_name = folder_name + "/surface.dat";
+  const std::string infile2_name = folder_name + "/decdat2.dat";
+  std::ifstream infile1(infile1_name), infile2(infile2_name);
+  if (!infile1.good()) {
+    throw std::runtime_error("Could not open file " + infile1_name);
+  }
+  if (!infile2.good()) {
+    throw std::runtime_error("Could not open file " + infile2_name);
+  }
+  std::cout << "Reading from " << infile1_name
+            << " and " << infile2_name << std::endl;
+  cells_.clear();
+  std::string line1, line2;
+  int line_counter = 0;
+  while (true) {
+    bool read_line1 = static_cast<bool>(std::getline(infile1, line1));
+    bool read_line2 = static_cast<bool>(std::getline(infile2, line2));
+    if (read_line1 != read_line2) {
+      throw std::runtime_error("Line " + std::to_string(line_counter) +
+                   ": files " + infile1_name + " and " + infile2_name +
+                   " have different number of lines.");
+    }
+    if (!read_line1 && !read_line2) {
+      break;
+    }
+    std::istringstream iss1(line1), iss2(line2);
+    double tau_0, tau_fo, x_fo, y_fo;
+    iss1 >> tau_0 >> tau_fo >> x_fo >> y_fo;
+    double tau, da0, da1, da2, vx, vy, vz, Edec, Bn, Tdec, muB, muS, muQ;
+    iss2 >> tau >> da0 >> da1 >> da2 >> vx >> vy
+         >> Edec >> Bn >> Tdec >> muB >> muS;
+    muQ = 0.0;
+    vz = 0.0;
+    // tau is present in both files, should be the same
+    assert(std::abs(tau_fo - tau) < 1e-5);
+    assert(Tdec > 0);
+    const double gamma = 1.0 / std::sqrt(1.0 - vx * vx - vy * vy - vz * vz);
+    smash::FourVector u(1.0, vx, vy, vz);
+    u *= gamma;
+    assert(std::abs(u.abs() - 1.0) < 1.e-15);
+    // For eta = 0, there is no difference between Milne and Cartesian
+    cells_.push_back({{tau_fo, x_fo, y_fo, 0}, {da0, da1, da2, 0.0}, u,
+                   {0.0, 0.0, 0.0, 0.0}, Tdec, muB, muS, muQ, 0.0, 0.0, 0.0});
+    line_counter++;
+  }
+}
+
 
 void HyperSurfacePatch::compute_totals() {
   std::cout << "Computing 4-momentum and charges in cells" << std::endl;

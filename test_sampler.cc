@@ -246,7 +246,8 @@ void usage(const int rc, const std::string &progname) {
       "  -s, --surface           <surface_file>,<surface_format>\n"
       "                          File with the list of hypersurface elements\n"
       "                          and its format: Dima_format,\n"
-      "                          Steinheimer_format, or MUSIC_format\n"
+      "                          Steinheimer_format, MUSIC_format,\n"
+      "                          or VISH_format\n"
       "  -n, --nevents           number of sampled instances to output\n"
       "  -r, --reproduce_1902_09775 reproduce results of arxiv::1902.09775\n"
       "  -t, --test                 run testing functions\n"
@@ -327,6 +328,9 @@ int main(int argc, char **argv) {
           } else if (args[1] == "MUSIC_format") {
             hypersurface_file_format =
               HyperSurfacePatch::InputFormat::MUSIC_ASCII_3plus1D;
+          } else if (args[1] == "VISH_format") {
+            hypersurface_file_format =
+              HyperSurfacePatch::InputFormat::VISH_2files;
           } else {
             usage(EXIT_FAILURE, progname);
           }

@@ -11,7 +11,7 @@ class HyperSurfacePatch {
 
 public:
   enum class InputFormat { DimaNaiveFormat = 0, MUSIC_ASCII_3plus1D = 1,
-                           Steinheimer = 2, };
+                           Steinheimer = 2, VISH_2files = 3};
 
   struct hydro_cell {
     smash::FourVector r;
@@ -82,6 +82,9 @@ private:
 
   /// Read in cells from file of Jan Steinheimer format
   void read_from_Steinheimer_file(const std::string &filename);
+
+  /// Read in cells in VISH format (surface.dat and decdat2.dat)
+  void read_from_VISH_2files(const std::string &folder_name);
 
   /// Compute total 4-momentum, baryon number, strangeness, and charge
   void compute_totals();
