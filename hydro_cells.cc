@@ -247,7 +247,7 @@ void HyperSurfacePatch::read_from_VISH_2files(const std::string &folder_name) {
     u *= gamma;
     assert(std::abs(u.abs() - 1.0) < 1.e-15);
     // For eta = 0, there is no difference between Milne and Cartesian
-    cells_.push_back({{tau_fo, x_fo, y_fo, 0}, {da0, da1, da2, 0.0}, u,
+    cells_.push_back({{tau_fo, x_fo, y_fo, 0}, {da0, -da1, -da2, 0.0}, u,
                    {0.0, 0.0, 0.0, 0.0}, Tdec, muB, muS, muQ, 0.0, 0.0, 0.0});
     line_counter++;
   }
