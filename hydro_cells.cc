@@ -281,7 +281,8 @@ void HyperSurfacePatch::read_from_VISH_2files(const std::string &folder_name,
                            dsig = {cell.dsigma.x0() * ch_eta,
                                    cell.dsigma.x1(),
                                    cell.dsigma.x2(),
-                                  -cell.dsigma.x0() * sh_eta};
+                                   cell.dsigma.x0() * sh_eta};
+      assert(std::abs(u.Dot(dsig) - cell.u.Dot(cell.dsigma)) < 1.e-9);
       cells_.push_back({r, dsig, u, {0.0, 0.0, 0.0, 0.0},
                        cell.T, cell.muB, cell.muS, cell.muQ,
                        0.0, 0.0, 0.0});
