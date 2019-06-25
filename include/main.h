@@ -19,15 +19,16 @@ void reproduce_arxiv_1902_09775();
  */
 void step_until_sufficient_decorrelation(
     MicrocanonicalSampler& sampler,
-    const std::vector<HyperSurfacePatch>& patches,                                     
+    const std::vector<HyperSurfacePatch>& patches,
     std::vector<MicrocanonicalSampler::SamplerParticleList>& particles,
-    size_t min_steps_number, double required_decorrelation_degree); 
+    size_t min_steps_number, double required_decorrelation_degree);
 
 /**
  * Main sampling routine. Reads the list of cells (hypersurface elements)
  * from hypersurface_input_file of format hypersurface_file_format.
  * Then prepares the sampler and samples.
  * The sampled particles are written to output_file.
+ * eta_for_2Dhydro - eta_min, eta_max, d_eta for 2+1D hydro
  * N_warmup - number of warmup steps of Markov chain. These steps are
  *            done before printout. The number of steps should be large
  *            enough for Markov chain to reach stationary state.
@@ -42,6 +43,7 @@ void step_until_sufficient_decorrelation(
  */
 void sample(const std::string hypersurface_input_file,
             HyperSurfacePatch::InputFormat hypersurface_file_format,
+            const std::array<double, 3> &eta_for_2Dhydro,
             const std::string output_file,
             const std::string patches_output_filename, size_t N_warmup,
             size_t N_decorrelate, size_t N_printout,

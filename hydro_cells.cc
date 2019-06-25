@@ -8,6 +8,7 @@
 
 HyperSurfacePatch::HyperSurfacePatch(
     const std::string &input_file, InputFormat read_in_format,
+    const std::array<double, 3> &eta_for_2Dhydro,
     const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
     bool q_stat)
     : quantum_statistics_(q_stat) {
@@ -30,7 +31,7 @@ HyperSurfacePatch::HyperSurfacePatch(
     break;
   case InputFormat::VISH_2files:
     // In this case input_file is the name of a folder
-    read_from_VISH_2files(input_file);
+    read_from_VISH_2files(input_file, eta_for_2Dhydro);
     break;
   default:
     throw std::runtime_error("Unknown input file format");
@@ -205,7 +206,8 @@ void HyperSurfacePatch::read_from_file(const std::string &filename) {
   }
 }
 
-void HyperSurfacePatch::read_from_VISH_2files(const std::string &folder_name) {
+void HyperSurfacePatch::read_from_VISH_2files(const std::string &folder_name,
+                                const std::array<double, 3> &eta_for_2Dhydro) {
   const std::string infile1_name = folder_name + "/surface.dat";
   const std::string infile2_name = folder_name + "/decdat2.dat";
   std::ifstream infile1(infile1_name), infile2(infile2_name);
@@ -215,9 +217,10 @@ void HyperSurfacePatch::read_from_VISH_2files(const std::string &folder_name) {
   if (!infile2.good()) {
     throw std::runtime_error("Could not open file " + infile2_name);
   }
-  std::cout << "Reading from " << infile1_name
+  std::cout << "Reading midrapidity cells from " << infile1_name
             << " and " << infile2_name << std::endl;
-  cells_.clear();
+  std::vector<hydro_cell> midrapidity_cells;
+  midrapidity_cells.clear();
   std::string line1, line2;
   int line_counter = 0;
   while (true) {
@@ -247,9 +250,43 @@ void HyperSurfacePatch::read_from_VISH_2files(const std::string &folder_name) {
     u *= gamma;
     assert(std::abs(u.abs() - 1.0) < 1.e-15);
     // For eta = 0, there is no difference between Milne and Cartesian
-    cells_.push_back({{tau_fo, x_fo, y_fo, 0}, {da0, -da1, -da2, 0.0}, u,
+    midrapidity_cells.push_back({{tau_fo, x_fo, y_fo, 0},
+                   {da0, -da1, -da2, 0.0}, u,
                    {0.0, 0.0, 0.0, 0.0}, Tdec, muB, muS, muQ, 0.0, 0.0, 0.0});
     line_counter++;
+  }
+  std::cout << "Finished reading, read " << line_counter
+            << " cells." << std::endl;
+  std::cout << "Assuming boost invariance, extending midrapidity cells to the "
+            << "eta range (" << eta_for_2Dhydro[0] << ", "
+            << eta_for_2Dhydro[1] << ") with d_eta = "
+            << eta_for_2Dhydro[2] << std::endl;
+  assert(eta_for_2Dhydro[0] < eta_for_2Dhydro[1]);
+  assert(eta_for_2Dhydro[2] > 0.01);
+  double eta = eta_for_2Dhydro[0];
+  cells_.clear();
+  while (eta <= eta_for_2Dhydro[1] + 1.e-6) {
+    std::cout << "eta = " << eta << std::endl;
+    const double ch_eta = std::cosh(eta),
+                 sh_eta = std::sinh(eta);
+    for (const auto &cell : midrapidity_cells) {
+      const smash::FourVector r = {cell.r.x0() * ch_eta,
+                                   cell.r.x1(),
+                                   cell.r.x2(),
+                                   cell.r.x0() * sh_eta},
+                              u = {cell.u.x0() * ch_eta,
+                                   cell.u.x1(),
+                                   cell.u.x2(),
+                                   cell.u.x0() * sh_eta},
+                           dsig = {cell.dsigma.x0() * ch_eta,
+                                   cell.dsigma.x1(),
+                                   cell.dsigma.x2(),
+                                  -cell.dsigma.x0() * sh_eta};
+      cells_.push_back({r, dsig, u, {0.0, 0.0, 0.0, 0.0},
+                       cell.T, cell.muB, cell.muS, cell.muQ,
+                       0.0, 0.0, 0.0});
+    }
+    eta += eta_for_2Dhydro[2];
   }
 }
 
@@ -357,8 +394,14 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
   mean_muB /= Ncells();
   mean_T_sqr /= Ncells();
   mean_muB_sqr /= Ncells();
-  const double mean_dT_sqr = mean_T_sqr - mean_T * mean_T,
-               mean_dmuB_sqr = mean_muB_sqr - mean_muB * mean_muB;
+  double mean_dT_sqr = mean_T_sqr - mean_T * mean_T,
+         mean_dmuB_sqr = mean_muB_sqr - mean_muB * mean_muB;
+  if (mean_dT_sqr < 1.e-3) {
+    mean_dT_sqr = 0.0;
+  }
+  if (mean_dmuB_sqr < 1.e-3) {
+    mean_dmuB_sqr = 0.0;
+  }
   double inv_dT_sqr = (mean_dT_sqr < 1.e-3) ? 0.0 : 1.0 / mean_dT_sqr,
          inv_dmuB_sqr = (mean_dmuB_sqr < 1.e-3) ? 0.0 : 1.0 / mean_dmuB_sqr;
   std::cout << "Hypersurface temperature: " << mean_T << "±"
@@ -423,7 +466,8 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
     // (3) Collect cells to patch until energy is enough or no cells left
     smash::FourVector pmu_patch = smash::FourVector();
     std::vector<hydro_cell>::iterator cluster_start = nonclustered_begin;
-    while (pmu_patch.abs() < E_patch_max && nonclustered_begin != cells_.end()) {
+    while (pmu_patch.sqr() < E_patch_max * E_patch_max &&
+           nonclustered_begin != cells_.end()) {
       pmu_patch += nonclustered_begin->pmu;
       std::advance(nonclustered_begin, 1);
     }
