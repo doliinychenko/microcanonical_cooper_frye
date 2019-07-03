@@ -51,7 +51,8 @@ However, there are cases, where these play an important role:
    which are typically a more popular subject of research)
 - Switching from fluctuating / stochastic hydrodynamics to particles
 - Studying small collision systems (in my field Au+Au nuclei collision is still
-  a large system, haha; small system is, for example, d+Au or C+C)
+  a large system, even though it may be 20 just femtometers large;
+  an actual small system is, for example, d+Au or C+C)
 - Studying rare particles, such as Omega(sss) baryon
 - Studying the background for chiral magnetic effect
 
@@ -71,10 +72,11 @@ these steps:
    on the desired stationary distribution and on the proposal function.
 
 In this project the proposal function is very similar to 2<->3 collisions,
-which ensures all the conservation laws. One can imagine the outcome as a Markov chain,
-that travels in a special subspace of {cell(i), p_i}, where i varies from 1 to N, and N
-is variable), where the total energy, momentum and quantum numbers are the same.
-If this is not very clear, don't worry, read [my preprint](https://arxiv.org/pdf/1902.09775.pdf).
+which ensures all the conservation laws. One can imagine the outcome as a
+Markov chain, that travels in a special subspace of {cell(i), p_i}, where i
+varies from 1 to N, and N is variable), where the total energy, momentum and
+quantum numbers are the same.  If this is not very clear, don't worry, read [my
+preprint](https://arxiv.org/pdf/1902.09775.pdf).
 
 #### Current state
 
@@ -161,16 +163,17 @@ One can specify the input file and format with a command-line option, for exampl
 
 Format specifications: To be described here.
 
-**Particle list** to be sampled is the second thing that the sampler needs.
-It is the list of possible particles to sample. The list itself is given
-in a file in [SMASH format](http://theory.gsi.de/~smash/doc/1.6/inputparticles.html).
+**Particle list** to be sampled is the second thing that the sampler needs.  It
+is the list of possible particles to sample. The list itself is given in a file
+in [SMASH format](http://theory.gsi.de/~smash/doc/1.6/inputparticles.html).
 Normally, it is expected that the users just take the full SMASH particles.txt
 file and remove particles until they get the desired particle list. Particle
-list has to be supplied by their decaymodes, again in [SMASH format](http://theory.gsi.de/~smash/doc/1.6/inputdecaymodes.html).
-Same strategy works here, as for particles: copy the decaymodes.txt from SMASH and
+list has to be supplied by their decaymodes, again in [SMASH
+format](http://theory.gsi.de/~smash/doc/1.6/inputdecaymodes.html).  Same
+strategy works here, as for particles: copy the decaymodes.txt from SMASH and
 edit it. The decaymodes currently do not influence the sampling, but they might
-be necessary in future, if one wants to (a) decay the resonances (b) take resonance spectral
-functions into account.
+be necessary in future, if one wants to (a) decay the resonances (b) take
+resonance spectral functions into account.
 
 By default the default SMASH particle list and decaymodes are used. Here is an example of sampling
 a custom particle list:
@@ -185,7 +188,7 @@ Parameters like patch size or number of events can be specified via command-line
 
 ### Outputs  <a name = "output"></a>
 
-**Sampled particles** are by default printed out into @sampled_particles.dat@.
+**Sampled particles** are by default printed out into sampled_particles.dat.
 This can be changed, as in this example
 
       ./microcanonical --output_file analyze_next_week/sampled_on_my_lovely_hypersurface134.out
@@ -216,8 +219,8 @@ pdgid is a [standard Particle Data Group code defining particle identity](http:/
 Microcanonical sampling (see [a paper by Werner and
 Aichelin](https://arxiv.org/pdf/nucl-th/9503021.pdf) and [a paper by Becattini
 and Ferroni](https://arxiv.org/pdf/hep-ph/0407117.pdf)) is a special case of
-this sampler. If you wish to use it in the microcanonical sampler mode,
-you can take advantage of a script intended specifically for this purpose:
+this sampler. If you wish to use it in the microcanonical sampler mode, you can
+take advantage of a script intended specifically for this purpose:
 
       ../scripts/microcanonical_sampler_box.sh  -V <Volume in fm^3> -T <Temperature in GeV>
 
