@@ -8,6 +8,7 @@
   - [Running and command line options](#running)
   - [Inputs](#inputs)
   - [Outputs](#outputs)
+  - [Using as a microcanonical sampler](#microcanonical)
 - [Testing physics](#tests)
 - [Troubleshooting and feature requests](#bugs)
 
@@ -42,9 +43,9 @@ Huovinen and H. Petersen](https://arxiv.org/pdf/1206.3371.pdf), mainly Sections
 
 Event-by event local conservation laws are not always important, most studies,
 which address particle rapidity, transverse momentum, or radial angle distributions,
-don't really need them to be local and even-by-event.
+don't really need conservation laws to be local and even-by-event.
 
-However, there are cases, where they play an important role:
+However, there are cases, where these play an important role:
 
 - Studying correlations and fluctuations of particle numbers (in contrast to means,
    which are typically a more popular subject of research)
@@ -123,8 +124,13 @@ Before compiling install these:
 
 ## How to use it? <a name = "usage"></a>
 
+### Running and command line options  <a name = "running"></a>
+
+To be updated
 
 ### Inputs <a name = "input"></a>
+
+To be updated
 
 A file with a list of hypersurface elements. Each element is defined by
 T    - temperature
@@ -137,10 +143,17 @@ dsigma^mu - normal 4-vector to the hypersurface element, note that the index is 
 
 ### Outputs  <a name = "output"></a>
 
+To be updated
+
 Sampled particles, characterized by
 - type
 - momentum
 - number of cell
+
+### Using as a microcanonical sampler  <a name = "microcanonical"></a>
+
+To be written 
+
 
 
 ## Testing physics <a name = "testing"></a>
