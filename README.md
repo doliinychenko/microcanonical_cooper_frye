@@ -124,37 +124,102 @@ Before compiling install these:
 
 ## How to use it? <a name = "usage"></a>
 
+If you are using this code, please cite [this publication](http://inspirehep.net/record/1722034/export/hlxu).
+
+
 ### Running and command line options  <a name = "running"></a>
 
-To be updated
+Most of the features are controlled through the command-line options.
+Run
+
+      ./microcanonical --help
+
+to see a list of these options.
 
 ### Inputs <a name = "input"></a>
 
-To be updated
+**Hypersurface** is the first thing that the sampler needs. It is a list
+of computational hydrodynamic cells.  Eventually, the code needs
+to know the following quantities for every cell:
+- space-time position x
+- temperature T
+- baryon chemical potential muB
+- strangeness chemical potential muS
+- electric charge chemical potential muQ
+- 3-velocity v
+- normal 4-vector to the hypersurface element,
+  for definition see Eq. (2) in [Particlization in hybrid models](https://arxiv.org/pdf/1206.3371.pdf).
 
-A file with a list of hypersurface elements. Each element is defined by
-T    - temperature
-muB  - baryon chemical potential
-muS  - strangeness chemical potential
-muQ  - electric charge chemical potential
-v    - 3-velocity of the hypersurface element
-dsigma^mu - normal 4-vector to the hypersurface element, note that the index is upper
-       For definition see Eq. (2) in https://arxiv.org/pdf/1206.3371.pdf
+The sampler can read hypersurface files in different formats.
+All formats are multiline files, where each line represents one hydrodynamic computational cell.
+
+One can specify the input file and format with a command-line option, for example:
+
+      ./microcanonical --surface  ../MUSIC_hypersurfaces_200GeV/hyper5.dat,MUSIC_format
+      ./microcanonical --surface  ../UrQMD_hyper/test_hyper.dat,Steinheimer_format
+      ./microcanonical --surface  ../from_VISHNU/,VISH_format
+
+Format specifications: To be described here.
+
+**Particle list** to be sampled is the second thing that the sampler needs.
+It is the list of possible particles to sample. The list itself is given
+in a file in [SMASH format](http://theory.gsi.de/~smash/doc/1.6/inputparticles.html).
+Normally, it is expected that the users just take the full SMASH particles.txt
+file and remove particles until they get the desired particle list. Particle
+list has to be supplied by their decaymodes, again in [SMASH format](http://theory.gsi.de/~smash/doc/1.6/inputdecaymodes.html).
+Same strategy works here, as for particles: copy the decaymodes.txt from SMASH and
+edit it. The decaymodes currently do not influence the sampling, but they might
+be necessary in future, if one wants to (a) decay the resonances (b) take resonance spectral
+functions into account.
+
+By default the default SMASH particle list and decaymodes are used. Here is an example of sampling
+a custom particle list:
+
+      ./microcanonical --particles  ../my_edited_particles.txt,../my_edited_decaymodes.txt
+      ./microcanonical --particles  only_pi0.txt,empty_decaymodes.txt
+
+Parameters like patch size or number of events can be specified via command-line options:
+
+      ./microcanonical --energy_patch 15.5
+      ./microcanonicel --nevents 10000
 
 ### Outputs  <a name = "output"></a>
 
-To be updated
+**Sampled particles** are by default printed out into @sampled_particles.dat@.
+This can be changed, as in this example
 
-Sampled particles, characterized by
-- type
-- momentum
-- number of cell
+      ./microcanonical --output_file analyze_next_week/sampled_on_my_lovely_hypersurface134.out
+
+The output format is
+
+      # sample 0
+      t x y z E px py pz pdgid
+      t x y z E px py pz pdgid
+      t x y z E px py pz pdgid
+      ...
+      # sample 1
+      t x y z E px py pz pdgid
+      t x y z E px py pz pdgid
+      t x y z E px py pz pdgid
+      ...
+
+Here (t, x, y, z) [fm/c, fm, fm, fm] is a Cartesian space-time position of the particle,
+(E, px, py, pz) [GeV, GeV/c, GeV/c, GeV/c] is its 4-momentum,
+pdgid is a [standard Particle Data Group code defining particle identity](http://pdg.lbl.gov/2002/montecarlorpp.pdf).
+
+**Hypersurface partitioning into patches** is not dumped by default, but can be optionally printed out:
+
+      ./microcanonical --labeled_hyper_output  my_hypersurface_partitioning.txt
 
 ### Using as a microcanonical sampler  <a name = "microcanonical"></a>
 
-To be written 
+Microcanonical sampling (see [a paper by Werner and
+Aichelin](https://arxiv.org/pdf/nucl-th/9503021.pdf) and [a paper by Becattini
+and Ferroni](https://arxiv.org/pdf/hep-ph/0407117.pdf)) is a special case of
+this sampler. If you wish to use it in the microcanonical sampler mode,
+you can take advantage of a script intended specifically for this purpose:
 
-
+      ../scripts/microcanonical_sampler_box.sh  -V <Volume in fm^3> -T <Temperature in GeV>
 
 ## Testing physics <a name = "testing"></a>
 
