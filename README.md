@@ -19,7 +19,7 @@ event-by-event conservation laws: energy, momentum, baryon number, strangeness,
 and electric charge.**
 
 Also, under particular configuration this code can be applied as a fast
-microcanonical sampler (see [usage](#usage)). It turns into a microcanonical sampler, if
+microcanonical sampler (see [microcanonical](#microcanonical)). It turns into a microcanonical sampler, if
 the provided hypersurface is particularly simple --- a static box.
 Microcanonical samplers were implemented before (see [a paper by Werner and
 Aichelin](https://arxiv.org/pdf/nucl-th/9503021.pdf) and [a paper by Becattini
