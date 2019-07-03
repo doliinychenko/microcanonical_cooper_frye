@@ -1,4 +1,4 @@
-# Sampling particles on a hypersurface with event-by-event energy, momentum, baryon number, strangeness and charge conservation.
+# Sampling particles on a hypersurface with local event-by-event energy, momentum, baryon number, strangeness, and charge conservation.
 
 ## Table of Contents
 
@@ -18,7 +18,7 @@ event-by-event conservation laws: energy, momentum, baryon number, strangeness,
 and electric charge.**
 
 Also, under particular configuration this code can be applied as a fast
-microcanonical sampler (see #usage). It turns into a microcanonical sampler, if
+microcanonical sampler (see [usage](#usage)). It turns into a microcanonical sampler, if
 the provided hypersurface is particularly simple --- a static box.
 Microcanonical samplers were implemented before (see [a paper by Werner and
 Aichelin](https://arxiv.org/pdf/nucl-th/9503021.pdf) and [a paper by Becattini
@@ -121,7 +121,7 @@ Before compiling install these:
 
       cmake .. -DPythia_CONFIG_EXECUTABLE=[...]/pythia8235/bin/pythia8-config
 
-## How to use it? Inputs <a name = "usage"></a>
+## How to use it? <a name = "usage"></a>
 
 
 ### Inputs <a name = "input"></a>
