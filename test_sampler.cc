@@ -41,7 +41,8 @@ void reproduce_arxiv_1902_09775() {
     }
   }
 
-  HyperSurfacePatch hyper(hypersurface_input_file, format,
+  // The eta range {0.0, 0.0, 0.0} is completely dummy here
+  HyperSurfacePatch hyper(hypersurface_input_file, format, {0.0, 0.0, 0.0},
                           species_to_sample, quantum_statistics);
   std::cout << "# Hypersurface: " << hyper << std::endl;
   MicrocanonicalSampler sampler(species_to_sample, 0, quantum_statistics);
@@ -128,6 +129,7 @@ void step_until_sufficient_decorrelation(
 
 void sample(const std::string hypersurface_input_file,
             HyperSurfacePatch::InputFormat hypersurface_file_format,
+            const std::array<double, 3> &eta_for_2Dhydro,
             const std::string output_file_name,
             const std::string patches_output_filename, size_t N_warmup,
             size_t N_decorrelate, size_t N_printout,
@@ -148,6 +150,7 @@ void sample(const std::string hypersurface_input_file,
   constexpr double sufficient_decorrelation = 0.01;
 
   HyperSurfacePatch hyper(hypersurface_input_file, hypersurface_file_format,
+                          eta_for_2Dhydro,
                           is_sampled_type, quantum_statistics);
   std::cout << "Full hypersurface: " << hyper << std::endl;
   MicrocanonicalSampler sampler(is_sampled_type, 0, quantum_statistics);
@@ -246,7 +249,12 @@ void usage(const int rc, const std::string &progname) {
       "  -s, --surface           <surface_file>,<surface_format>\n"
       "                          File with the list of hypersurface elements\n"
       "                          and its format: Dima_format,\n"
-      "                          Steinheimer_format, or MUSIC_format\n"
+      "                          Steinheimer_format, MUSIC_format,\n"
+      "                          or VISH_format\n"
+      "  -y, --eta_range         <eta_min>,<eta_max>,<d_eta>\n"
+      "                          range of pseudorapidity for the case of\n"
+      "                          2+1D hydro. Default is\n"
+      "                          eta_min = -2, eta_max = 2, d_eta = 0.4\n"
       "  -n, --nevents           number of sampled instances to output\n"
       "  -r, --reproduce_1902_09775 reproduce results of arxiv::1902.09775\n"
       "  -t, --test                 run testing functions\n"
@@ -273,12 +281,14 @@ int main(int argc, char **argv) {
       "../../surface_from_Jan/spinodal_hyper_pbpb_elb3.5_28-5.f16");
   HyperSurfacePatch::InputFormat hypersurface_file_format =
       HyperSurfacePatch::InputFormat::Steinheimer;
+  std::array<double, 3> eta_for_2Dhydro = {-2.0, 2.0, 0.4};
 
 
   constexpr option longopts[] = {
       {"help", no_argument, 0, 'h'},
       {"particles", required_argument, 0, 'p'},
       {"surface", required_argument, 0, 's'},
+      {"eta_range", required_argument, 0, 'y'},
       {"nevents", required_argument, 0, 'n'},
       {"reproduce_1902_09775", no_argument, 0, 'r'},
       {"test", no_argument, 0, 't'},
@@ -292,7 +302,7 @@ int main(int argc, char **argv) {
             i2 = full_progname.size();
   const std::string progname = full_progname.substr(i1, i2);
   int opt = 0;
-  while ((opt = getopt_long(argc, argv, "hp:s:n:rte:o:l:",
+  while ((opt = getopt_long(argc, argv, "hp:s:y:n:rte:o:l:",
           longopts, nullptr)) != -1) {
     switch (opt) {
       case 'h':
@@ -327,9 +337,30 @@ int main(int argc, char **argv) {
           } else if (args[1] == "MUSIC_format") {
             hypersurface_file_format =
               HyperSurfacePatch::InputFormat::MUSIC_ASCII_3plus1D;
+          } else if (args[1] == "VISH_format") {
+            hypersurface_file_format =
+              HyperSurfacePatch::InputFormat::VISH_2files;
           } else {
             usage(EXIT_FAILURE, progname);
           }
+          break;
+        }
+      case 'y':
+        {
+          std::string arg_string(optarg);
+          std::vector<std::string> args = split(arg_string, ',');
+          if (hypersurface_file_format !=
+              HyperSurfacePatch::InputFormat::VISH_2files) {
+            std::cout << "-y option only makes sense with 2+1D hydro."
+                      << std::endl;
+            usage(EXIT_FAILURE, progname);
+          }
+         if (args.size() != 3) {
+            usage(EXIT_FAILURE, progname);
+          }
+          eta_for_2Dhydro[0] = std::stod(args[0]);
+          eta_for_2Dhydro[1] = std::stod(args[1]);
+          eta_for_2Dhydro[2] = std::stod(args[2]);
           break;
         }
       case 'n':
@@ -371,7 +402,7 @@ int main(int argc, char **argv) {
 
   const size_t N_warmup = 1E6, N_decorrelate = 500;
   constexpr double max_mass = 2.5;  // GeV
-  sample(hypersurface_input_file, hypersurface_file_format,
+  sample(hypersurface_input_file, hypersurface_file_format, eta_for_2Dhydro,
          output_file, patches_output_filename,
          N_warmup, N_decorrelate, N_printout, max_mass, Epatch);
 }
