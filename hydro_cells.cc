@@ -210,37 +210,50 @@ void HyperSurfacePatch::read_from_VISH_2files(const std::string &folder_name,
                                 const std::array<double, 3> &eta_for_2Dhydro) {
   const std::string infile1_name = folder_name + "/surface.dat";
   const std::string infile2_name = folder_name + "/decdat2.dat";
-  std::ifstream infile1(infile1_name), infile2(infile2_name);
+  const std::string infile3_name = folder_name + "/surface_mu.dat";
+  std::ifstream infile1(infile1_name),
+                infile2(infile2_name),
+                infile3(infile3_name);
   if (!infile1.good()) {
     throw std::runtime_error("Could not open file " + infile1_name);
   }
   if (!infile2.good()) {
     throw std::runtime_error("Could not open file " + infile2_name);
   }
-  std::cout << "Reading midrapidity cells from " << infile1_name
-            << " and " << infile2_name << std::endl;
+  if (!infile3.good()) {
+    throw std::runtime_error("Could not open file " + infile3_name);
+  }
+  std::cout << "Reading midrapidity cells from " << infile1_name << ", "
+            << infile2_name << ", and " << infile3_name << std::endl;
   std::vector<hydro_cell> midrapidity_cells;
   midrapidity_cells.clear();
-  std::string line1, line2;
+  std::string line1, line2, line3;
   int line_counter = 0;
   while (true) {
     bool read_line1 = static_cast<bool>(std::getline(infile1, line1));
     bool read_line2 = static_cast<bool>(std::getline(infile2, line2));
-    if (read_line1 != read_line2) {
+    bool read_line3 = static_cast<bool>(std::getline(infile3, line3));
+    if ((read_line1 != read_line2) || (read_line1 != read_line3)) {
       throw std::runtime_error("Line " + std::to_string(line_counter) +
-                   ": files " + infile1_name + " and " + infile2_name +
-                   " have different number of lines.");
+                   ": files " + infile1_name + ", " + infile2_name + " and "
+                    + infile3_name + " have different number of lines.");
     }
-    if (!read_line1 && !read_line2) {
+    if (!read_line1 && !read_line2 && !read_line3) {
       break;
     }
-    std::istringstream iss1(line1), iss2(line2);
+    std::istringstream iss1(line1), iss2(line2), iss3(line3);
     double tau_0, tau_fo, x_fo, y_fo;
     iss1 >> tau_0 >> tau_fo >> x_fo >> y_fo;
     double tau, da0, da1, da2, vx, vy, vz, Edec, Bn, Tdec, muB, muS, muQ;
     iss2 >> tau >> da0 >> da1 >> da2 >> vx >> vy
          >> Edec >> Bn >> Tdec >> muB >> muS;
     muQ = 0.0;
+    // Add additional chemical potentials from surface_mu.dat
+    double mu_u, mu_d, mu_s;
+    iss3 >> mu_u >> mu_d >> mu_s;
+    muB += (mu_u + 2.0*mu_d);
+    muQ += (mu_u - mu_d);
+    muS += (mu_d - mu_s);
     vz = 0.0;
     // tau is present in both files, should be the same
     assert(std::abs(tau_fo - tau) < 1e-5);
@@ -251,7 +264,7 @@ void HyperSurfacePatch::read_from_VISH_2files(const std::string &folder_name,
     assert(std::abs(u.abs() - 1.0) < 1.e-15);
     // For eta = 0, there is no difference between Milne and Cartesian
     midrapidity_cells.push_back({{tau_fo, x_fo, y_fo, 0},
-                   {da0, -da1, -da2, 0.0}, u,
+                   {da0 * tau, -da1 * tau, -da2 * tau, 0.0}, u,
                    {0.0, 0.0, 0.0, 0.0}, Tdec, muB, muS, muQ, 0.0, 0.0, 0.0});
     line_counter++;
   }
