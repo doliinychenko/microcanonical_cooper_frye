@@ -180,9 +180,18 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface,
     int Bi = t_minimizing->baryon_number(),
         Si = t_minimizing->strangeness(),
         Qi = t_minimizing->charge();
-    int mult = (Bi != 0) ? B / Bi : 0;
-    mult = (Si != 0) ? std::min(mult, S / Si) : mult;
-    mult = (Qi != 0) ? std::min(mult, Q / Qi) : mult;
+    const std::array<int, 3> possible_mult =
+      {(Bi != 0) ? B / Bi : 0, (Si != 0) ? S / Si : 0, (Qi != 0) ? Q / Qi : 0};
+    int mult = std::numeric_limits<int>::max();
+    for (const int x : possible_mult) {
+      if (x > 0 && x < mult) {
+        mult = x;
+      }
+    }
+    if (mult == std::numeric_limits<int>::max()) {
+      std::runtime_error("Initialization heuristics failed."
+          " No positive multiplicity suggested.");
+    }
     B -= Bi * mult;
     S -= Si * mult;
     Q -= Qi * mult;
