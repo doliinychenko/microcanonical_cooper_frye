@@ -6,9 +6,8 @@
 #include "hydro_cells.h"
 #include "microcanonical_sampler.h"
 
-#include "smash/decaymodes.h"
-#include "smash/isoparticletype.h"
-#include "smash/particletype.h"
+/// Generates proper random seed
+int64_t generate_63bit_seed();
 
 /// Provides samples to reproduce results of arXiv:1902.09775
 void reproduce_arxiv_1902_09775();

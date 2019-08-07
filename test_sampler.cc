@@ -6,21 +6,37 @@
 #include <streambuf>
 #include <string>
 #include <cstring>
+#include <random>
 
 #include "main.h"
 #include "microcanonical_sampler.h"
+#include "sampler_particletype_list.h"
 
 #include "smash/angles.h"
 #include "smash/constants.h"
 #include "smash/pow.h"
 #include "smash/random.h"
-#include "smash/setup_particles_decaymodes.h"
 #include "smash/stringfunctions.h"
 
-using namespace smash;
+using namespace sampler;
+
+namespace smash {
+  random::Engine random::engine;
+}
+
+int64_t generate_63bit_seed() {
+  std::random_device rd;
+  static_assert(std::is_same<decltype(rd()), uint32_t>::value,
+                "random_device is assumed to generate uint32_t");
+  uint64_t unsigned_seed =
+      (static_cast<uint64_t>(rd()) << 32) | static_cast<uint64_t>(rd());
+  // Discard the highest bit to make sure it fits into a positive int64_t
+  const int64_t seed = static_cast<int64_t>(unsigned_seed >> 1);
+  return seed;
+}
 
 void reproduce_arxiv_1902_09775() {
-  auto species_to_sample = [](const smash::ParticleTypePtr t) {
+  auto species_to_sample = [](ParticleTypePtr t) {
     // Hadrons above this mass are not sampled. It also matters
     // for computing total energy and charges on the hypersurface.
     static constexpr double max_mass = 2.5;  // GeV
@@ -33,7 +49,7 @@ void reproduce_arxiv_1902_09775() {
       "../hydro_cells_reproduce_arxiv1902.09775";
   const HyperSurfacePatch::InputFormat format =
       HyperSurfacePatch::InputFormat::DimaNaiveFormat;
-  ParticleTypePtrList printout_types;
+  std::vector<ParticleTypePtr> printout_types;
   for (const ParticleType &ptype : ParticleType::list_all()) {
     if (ptype.is_hadron() && ptype.is_stable() && ptype.mass() < 2.0 &&
         ptype.baryon_number() != -1 && ptype.pdgcode().charmness() == 0) {
@@ -56,7 +72,7 @@ void reproduce_arxiv_1902_09775() {
   std::cout << "# Finished warming up." << std::endl;
   std::cout << "# Total particles: " << particles.size() << std::endl;
   sampler.print_rejection_stats();
-  for (const ParticleTypePtr t : printout_types) {
+  for (ParticleTypePtr t : printout_types) {
     std::cout << t->name() << "  ";
   }
   std::cout << std::endl;
@@ -69,7 +85,7 @@ void reproduce_arxiv_1902_09775() {
     std::map<std::pair<ParticleTypePtr, size_t>, size_t> counter;
     for (const auto &particle : particles) {
       const std::pair<ParticleTypePtr, size_t> key(particle.type,
-                                                   particle.cell_index);
+                                                       particle.cell_index);
       if (counter.find(key) == counter.end()) {
         counter[key] = 0;
       }
@@ -77,7 +93,7 @@ void reproduce_arxiv_1902_09775() {
     }
     // Printout
     for (size_t i_cell = 0; i_cell < hyper.Ncells(); i_cell++) {
-      for (const ParticleTypePtr t : printout_types) {
+      for (ParticleTypePtr t : printout_types) {
         const std::pair<ParticleTypePtr, size_t> key(t, i_cell);
         std::cout << " " << counter[key];
       }
@@ -139,7 +155,7 @@ void sample(const std::string hypersurface_input_file,
    * A function, which defines, which species will be sampled. For
    * a given species, if it returns true, the species will be sampled.
    */
-  auto is_sampled_type = [&](const smash::ParticleTypePtr t) {
+  auto is_sampled_type = [&](ParticleTypePtr t) {
     return t->is_hadron() && t->mass() < max_mass;
   };
   /**
@@ -165,7 +181,7 @@ void sample(const std::string hypersurface_input_file,
     std::ofstream patches_output_file(patches_output_filename, std::ios::out);
     for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
       for (const auto a_cell : patches[i_patch].cells()) {
-        const ThreeVector v = a_cell.u.velocity();
+        const smash::ThreeVector v = a_cell.u.velocity();
         patches_output_file << a_cell.r.x1() << " "
                             << a_cell.r.x2() << " "
                             << a_cell.r.x3() << " "
@@ -217,7 +233,7 @@ void sample(const std::string hypersurface_input_file,
     for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
       for (const auto &particle : particles[i_patch]) {
         const auto &cell = patches[i_patch].cell(particle.cell_index);
-        const FourVector p = particle.momentum;
+        const smash::FourVector p = particle.momentum;
         output_file << cell.r.x0() << " " << cell.r.x1() << " "
                     << cell.r.x2() << " " << cell.r.x3() << " "
                     << p.x0() << " " << p.x1() << " "
@@ -241,10 +257,10 @@ void usage(const int rc, const std::string &progname) {
   std::printf("\nUsage: %s [option]\n\n", progname.c_str());
   std::printf(
       "  -h, --help              usage information\n\n"
-      "  -p, --particles         <particles_file>,<decaymodes_file>\n"
+      "  -p, --particles         <particles_file>,<format>\n"
       "                          list of particle species to be sampled in\n"
-      "                          <particles_file> and their decays in the\n"
-      "                          <decaymodes_file>, both in SMASH format\n"
+      "                          <particles_file> and the file format,\n"
+      "                          either \"SMASH\" or \"iSS\"\n"
       "        (see http://theory.gsi.de/~smash/doc/1.6/inputparticles.html)\n"
       "  -s, --surface           <surface_file>,<surface_format>\n"
       "                          File with the list of hypersurface elements\n"
@@ -270,9 +286,10 @@ void usage(const int rc, const std::string &progname) {
 }
 
 int main(int argc, char **argv) {
-  smash::random::set_seed(smash::random::generate_63bit_seed());
-  char *particles_file = nullptr,
-       *decaymodes_file = nullptr;
+  smash::random::set_seed(generate_63bit_seed());
+  std::string particles_file = "../src/smash/input/particles.txt";
+  ParticleListFormat particles_file_format =
+       ParticleListFormat::SMASH;
   double Epatch = 10.0;  // GeV
   size_t N_printout = 1E4;
   std::string output_file = "sampled_particles.dat",
@@ -311,19 +328,24 @@ int main(int argc, char **argv) {
       case 'p':
         {
           std::string arg_string(optarg);
-          std::vector<std::string> pd_strings = split(arg_string, ',');
+          std::vector<std::string> pd_strings = smash::split(arg_string, ',');
           if (pd_strings.size() != 2) {
-            throw std::invalid_argument(
-                "-p usage: particles_file,decaymodes_file");
+            usage(EXIT_FAILURE, progname);
           }
-          particles_file = strdup(pd_strings[0].c_str());
-          decaymodes_file = strdup(pd_strings[1].c_str());
+          particles_file = pd_strings[0];
+          if (pd_strings[1] == "SMASH") {
+            particles_file_format = ParticleListFormat::SMASH;
+          } else if (pd_strings[1] == "iSS") {
+            particles_file_format = ParticleListFormat::iSS;
+          } else {
+            usage(EXIT_FAILURE, progname);
+          }
           break;
         }
       case 's':
         {
           std::string arg_string(optarg);
-          std::vector<std::string> args = split(arg_string, ',');
+          std::vector<std::string> args = smash::split(arg_string, ',');
           if (args.size() != 2) {
             usage(EXIT_FAILURE, progname);
           }
@@ -348,7 +370,7 @@ int main(int argc, char **argv) {
       case 'y':
         {
           std::string arg_string(optarg);
-          std::vector<std::string> args = split(arg_string, ',');
+          std::vector<std::string> args = smash::split(arg_string, ',');
           if (hypersurface_file_format !=
               HyperSurfacePatch::InputFormat::VISH_2files) {
             std::cout << "-y option only makes sense with 2+1D hydro."
@@ -367,7 +389,8 @@ int main(int argc, char **argv) {
         N_printout = std::stoi(optarg);
         break;
       case 'r':
-        smash::load_default_particles_and_decaymodes();
+        read_particle_list("../src/smash/input/particles.txt",
+                           ParticleListFormat::SMASH);
         reproduce_arxiv_1902_09775();
         std::exit(EXIT_SUCCESS);
       case 't':
@@ -395,10 +418,7 @@ int main(int argc, char **argv) {
     usage(EXIT_FAILURE, progname);
   }
 
-  auto pd = smash::load_particles_and_decaymodes(particles_file, decaymodes_file);
-  ParticleType::create_type_list(pd.first);
-  DecayModes::load_decaymodes(pd.second);
-  ParticleType::check_consistency();
+  read_particle_list(particles_file, particles_file_format);
 
   const size_t N_warmup = 1E6, N_decorrelate = 500;
   constexpr double max_mass = 2.5;  // GeV

@@ -9,10 +9,10 @@
 HyperSurfacePatch::HyperSurfacePatch(
     const std::string &input_file, InputFormat read_in_format,
     const std::array<double, 3> &eta_for_2Dhydro,
-    const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
+    const std::function<bool(const ParticleTypePtr)> &is_sampled,
     bool q_stat)
     : quantum_statistics_(q_stat) {
-  for (const smash::ParticleType &ptype : smash::ParticleType::list_all()) {
+  for (const ParticleType &ptype : ParticleType::list_all()) {
     if (is_sampled(&ptype)) {
       sampled_types_.push_back(&ptype);
     }
@@ -324,7 +324,7 @@ void HyperSurfacePatch::compute_totals() {
     this_cell.S = 0.0;
     this_cell.Q = 0.0;
     const double T = this_cell.T;
-    for (const smash::ParticleTypePtr t : sampled_types_) {
+    for (const ParticleTypePtr t : sampled_types_) {
       const double m = t->mass();
       const double mu = this_cell.muB * t->baryon_number() +
                         this_cell.muS * t->strangeness() +
