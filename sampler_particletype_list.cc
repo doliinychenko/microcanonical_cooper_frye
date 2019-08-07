@@ -88,11 +88,12 @@ void read_particle_list(std::string inputfile_name,
                         ParticleListFormat format) {
   static std::vector<ParticleType> full_particletype_list;
   full_particletype_list.clear();
+  std::ifstream infile(inputfile_name);
+  if (!infile.good()) {
+    throw std::runtime_error("Could not open file " + inputfile_name);
+  }
+
   if (format == ParticleListFormat::SMASH) {
-    std::ifstream infile(inputfile_name);
-    if (!infile.good()) {
-      throw std::runtime_error("Could not open file " + inputfile_name);
-    }
     while (true) {
       std::string line;
       if (!std::getline(infile, line)) {
@@ -157,14 +158,77 @@ void read_particle_list(std::string inputfile_name,
         }
       }
     }
-    std::cout << "Read " << full_particletype_list.size()
-              << " particle types." << std::endl;
-    all_particle_types = &full_particletype_list;
   } else if (format == ParticleListFormat::iSS) {
-    throw std::runtime_error("iSS format not implemented yet");
+    while (true) {
+      std::string line;
+      if (!std::getline(infile, line)) {
+        break;
+      }
+      const auto hash_pos = line.find('#');
+      if (hash_pos != std::string::npos) {
+        // Found a comment, remove it from the line and look further
+        line = line.substr(0, hash_pos);
+      }
+      line = smash::trim(line);
+      if (line == "") {
+        continue;
+      }
+      std::istringstream lineinput(line);
+      std::string name;
+      double mass, width;
+      int bar, str, charm, bottom, charge, pdg;
+      unsigned int spin_degeneracy, isospin_degeneracy, number_of_decays;
+      lineinput >> pdg >> name >> mass >> width >> spin_degeneracy
+                >> bar >> str >> charm >> bottom >> isospin_degeneracy
+                >> charge >> number_of_decays;
+      const std::string failure_message = "While loading the ParticleType"
+          " data:\nFailed to convert the input string \"" + line +
+          "\" to the expected data types.";
+      if (lineinput.fail()) {
+        throw std::runtime_error(failure_message);
+      }
+      /* Some baryons do not fit the PDG standard numbering scheme.
+         This causes a mismatch between SMASH pdg treatment and iSS table.
+         the following fixes this mismatch on a case-by-case basis. */
+      if (pdg == 2110 || pdg == 2210 || pdg == 12110 || pdg == 12210) {
+        pdg += 19920009;
+      }
+      smash::PdgCode pdgcode = smash::PdgCode::from_decimal(pdg);
+      if (mass > 0) {
+        // SMASH spin_degeneracy is bugged for photon, so testing only for m > 0
+        assert(pdgcode.spin_degeneracy() == spin_degeneracy);
+      }
+      assert(pdgcode.baryon_number() == bar);
+      assert(pdgcode.strangeness() == str);
+      assert(pdgcode.charmness() == charm);
+      assert(pdgcode.bottomness() == bottom);
+      assert(pdgcode.charge() == charge);
+      full_particletype_list.emplace_back(name, mass, width, pdgcode);
+      // std::cout << full_particletype_list.back().name()
+      //          << " " << mass << " " << pdgcode << std::endl;
+      if (pdgcode.baryon_number() == 1) {
+       full_particletype_list.emplace_back("anti-" + name,
+                                      mass, width, pdgcode.get_antiparticle());
+         // std::cout << full_particletype_list.back().name() << " "
+         //          << mass << " " << pdgcode.get_antiparticle() << std::endl;
+      }
+      if (bar != 0 && bar != 1) {
+        throw std::runtime_error("Unexpected baryon number " +
+                                 std::to_string(bar));
+      }
+      // Skip decays as they are not necessary for the sampler
+      for (unsigned int j = 0; j < number_of_decays; j++) {
+        std::getline(infile, line);
+      }
+    }
   } else {
     throw std::runtime_error("Unknown particle list file format");
   }
+  all_particle_types = &full_particletype_list;
+  std::cout << "Particle list initialized with "
+            << all_particle_types->size()
+            << " particle species (this includes charge states) from "
+            << inputfile_name << std::endl;
 }
 
 }  // namespace sampler
