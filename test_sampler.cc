@@ -261,7 +261,7 @@ void usage(const int rc, const std::string &progname) {
       "                          list of particle species to be sampled in\n"
       "                          <particles_file> and the file format,\n"
       "                          either \"SMASH\" or \"iSS\"\n"
-      "        (see http://theory.gsi.de/~smash/doc/1.6/inputparticles.html)\n"
+      "                          (see README.md for more details)\n"
       "  -s, --surface           <surface_file>,<surface_format>\n"
       "                          File with the list of hypersurface elements\n"
       "                          and its format: Dima_format,\n"
