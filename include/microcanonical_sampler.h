@@ -14,7 +14,7 @@ class MicrocanonicalSampler {
 public:
   struct SamplerParticle {
     smash::FourVector momentum;
-    smash::ParticleTypePtr type;
+    ParticleTypePtr type;
     size_t cell_index;
     bool decorrelated;
   };
@@ -40,7 +40,7 @@ public:
   };
 
   MicrocanonicalSampler(
-      const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
+      const std::function<bool(const ParticleTypePtr)> &is_sampled,
       int debug_printout, bool quantum_statistics);
   /// Cannot be copied
   MicrocanonicalSampler(const MicrocanonicalSampler &) = delete;
@@ -92,7 +92,7 @@ private:
   void renormalize_momenta(const smash::FourVector &required_4mom,
                            SamplerParticleList &particles);
 
-  std::vector<smash::ParticleTypePtr> sampled_types_;
+  std::vector<ParticleTypePtr> sampled_types_;
   /** All possible combinations of 3 particle species with given quantum
    *  numbers B, S, Q defined by the key std::array<int,3>. The key maps
    *  to a vector of sorted triplets. The vector is sorted by the sum
@@ -100,11 +100,11 @@ private:
    *  given sqrt (total energy).
    */
   std::map<std::array<int, 3>,
-           std::vector<std::array<smash::ParticleTypePtr, 3>>>
+           std::vector<std::array<ParticleTypePtr, 3>>>
       channels3_;
   /// Same for 2-specie combinations
   std::map<std::array<int, 3>,
-           std::vector<std::array<smash::ParticleTypePtr, 2>>>
+           std::vector<std::array<ParticleTypePtr, 2>>>
       channels2_;
   /** Pre-computed sum of the masses for 3-body channels and t2-body channels
    *  in the same order that in channels3_ and channels2_

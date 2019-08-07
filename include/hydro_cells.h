@@ -4,8 +4,11 @@
 #include <functional>
 #include <vector>
 
+#include "sampler_particletype_list.h"
+
 #include "smash/fourvector.h"
-#include "smash/particletype.h"
+
+using namespace sampler;
 
 class HyperSurfacePatch {
 
@@ -47,7 +50,7 @@ public:
   HyperSurfacePatch(
       const std::string &input_file, InputFormat read_in_format,
       const std::array<double, 3> &eta_for_2Dhydro,
-      const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
+      const std::function<bool(const ParticleTypePtr)> &is_sampled,
       bool quantum_statistics);
   /**
    * Construct a hypersurface subpatch from a given patch and a list of
@@ -69,7 +72,7 @@ public:
   smash::FourVector pmu() const { return pmu_tot_; }
   const std::vector<hydro_cell> &cells() const { return cells_; }
   const hydro_cell &cell(size_t index) const { return cells_[index]; }
-  const std::vector<smash::ParticleTypePtr> sampled_types() const {
+  const std::vector<ParticleTypePtr> sampled_types() const {
     return sampled_types_;
   }
   size_t Ncells() const { return cells_.size(); }
@@ -95,7 +98,7 @@ private:
   void sum_up_totals_from_cells();
 
   std::vector<hydro_cell> cells_;
-  std::vector<smash::ParticleTypePtr> sampled_types_;
+  std::vector<ParticleTypePtr> sampled_types_;
   smash::FourVector pmu_tot_;
   double B_tot_nonint_, S_tot_nonint_, Q_tot_nonint_;
   int B_tot_, S_tot_, Q_tot_;

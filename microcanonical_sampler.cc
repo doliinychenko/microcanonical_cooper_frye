@@ -9,16 +9,12 @@
 
 #include "smash/angles.h"
 #include "smash/constants.h"
-#include "smash/decaymodes.h"
-#include "smash/isoparticletype.h"
 #include "smash/kinematics.h"
-#include "smash/particletype.h"
 #include "smash/pow.h"
-#include "smash/quantumnumbers.h"
 #include "smash/random.h"
 
 MicrocanonicalSampler::MicrocanonicalSampler(
-    const std::function<bool(const smash::ParticleTypePtr)> &is_sampled,
+    const std::function<bool(const ParticleTypePtr)> &is_sampled,
     int debug_printout, bool quantum_statistics)
     : debug_printout_(debug_printout), quantum_statistics_(quantum_statistics) {
   std::cout << "Initializing the sampler" << std::endl;
@@ -26,7 +22,7 @@ MicrocanonicalSampler::MicrocanonicalSampler(
   if (debug_printout_) {
     std::cout << "Initializing sampled types..." << std::endl;
   }
-  for (const smash::ParticleType &ptype : smash::ParticleType::list_all()) {
+  for (const ParticleType &ptype : ParticleType::list_all()) {
     if (is_sampled(&ptype)) {
       sampled_types_.push_back(&ptype);
     }
@@ -39,14 +35,14 @@ MicrocanonicalSampler::MicrocanonicalSampler(
   const int Ntypes = sampled_types_.size();
   for (int i1 = 0; i1 < Ntypes; ++i1) {
     for (int i2 = 0; i2 <= i1; ++i2) {
-      std::array<smash::ParticleTypePtr, 2> y{sampled_types_[i1],
+      std::array<ParticleTypePtr, 2> y{sampled_types_[i1],
                                               sampled_types_[i2]};
       std::array<int, 3> BSQ2{y[0]->baryon_number() + y[1]->baryon_number(),
                               y[0]->strangeness() + y[1]->strangeness(),
                               y[0]->charge() + y[1]->charge()};
       channels2_[BSQ2].push_back(y);
       for (int i3 = 0; i3 <= i2; ++i3) {
-        std::array<smash::ParticleTypePtr, 3> x{
+        std::array<ParticleTypePtr, 3> x{
             sampled_types_[i1], sampled_types_[i2], sampled_types_[i3]};
         const int B = x[0]->baryon_number() + x[1]->baryon_number() +
                       x[2]->baryon_number();
@@ -62,16 +58,16 @@ MicrocanonicalSampler::MicrocanonicalSampler(
   // Sort lists of channels by sum of masses = threshold energy
   for (auto &channels_BSQ : channels3_) {
     std::sort(channels_BSQ.second.begin(), channels_BSQ.second.end(),
-              [](const std::array<smash::ParticleTypePtr, 3> &a,
-                 const std::array<smash::ParticleTypePtr, 3> &b) {
+              [](const std::array<ParticleTypePtr, 3> &a,
+                 const std::array<ParticleTypePtr, 3> &b) {
                 return a[0]->mass() + a[1]->mass() + a[2]->mass() <
                        b[0]->mass() + b[1]->mass() + b[2]->mass();
               });
   }
   for (auto &channels_BSQ : channels2_) {
     std::sort(channels_BSQ.second.begin(), channels_BSQ.second.end(),
-              [](const std::array<smash::ParticleTypePtr, 2> &a,
-                 const std::array<smash::ParticleTypePtr, 2> &b) {
+              [](const std::array<ParticleTypePtr, 2> &a,
+                 const std::array<ParticleTypePtr, 2> &b) {
                 return a[0]->mass() + a[1]->mass() <
                        b[0]->mass() + b[1]->mass();
               });
@@ -137,8 +133,8 @@ MicrocanonicalSampler::MicrocanonicalSampler(
 void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface,
                                        SamplerParticleList &particles) {
   // Find lightest types with every combination of quantum numbers
-  std::map<std::array<int,3>, smash::ParticleTypePtr> lightest_species_BSQ;
-  for (smash::ParticleTypePtr t : sampled_types_) {
+  std::map<std::array<int,3>, ParticleTypePtr> lightest_species_BSQ;
+  for (ParticleTypePtr t : sampled_types_) {
     std::array<int,3> BSQ {t->baryon_number(), t->strangeness(), t->charge()};
     if (lightest_species_BSQ.find(BSQ) == lightest_species_BSQ.end() ||
         lightest_species_BSQ[BSQ]->mass() > t->mass()) {
@@ -153,7 +149,7 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface,
     std::runtime_error("The sampling method requires"
         " presence of a neutral non-strange meson in the species list.");
   }
-  std::map<smash::ParticleTypePtr, size_t> specie_quantity;
+  std::map<ParticleTypePtr, size_t> specie_quantity;
   /* Apply heuristics to fill the required quantum numbers with possibly lower
    * total energy. This heuristics is not guaranteed to work in general case,
    * but it seems to be fine for a real list of hadronic species.
@@ -165,7 +161,7 @@ void MicrocanonicalSampler::initialize(const HyperSurfacePatch &hypersurface,
     std::vector<std::array<int,3>> BSQ_to_try = {{signB, signS, signQ},
      {signB, signS, 0}, {signB, 0, signQ}, {0, signS, signQ},
      {signB, 0, 0}, {0, signS, 0}, {0, 0, signQ}};
-    smash::ParticleTypePtr t_minimizing =
+    ParticleTypePtr t_minimizing =
         lightest_species_BSQ[neutral_meson_BSQ];
     for (const auto BSQ : BSQ_to_try) {
       if (lightest_species_BSQ.find(BSQ) != lightest_species_BSQ.end()) {
@@ -443,7 +439,7 @@ void MicrocanonicalSampler::random_two_to_three(
       smash::random::uniform_int<size_t>(0, Ncells - 1),
       smash::random::uniform_int<size_t>(0, Ncells - 1)};
   size_t i_channel = smash::random::uniform_int<size_t>(0, N3 - 1);
-  std::array<smash::ParticleTypePtr, 3> out_types = channels3_[BSQ][i_channel];
+  std::array<ParticleTypePtr, 3> out_types = channels3_[BSQ][i_channel];
   const double R3 = compute_R3(
       srts, out_types[0]->mass(), out_types[1]->mass(), out_types[2]->mass());
   const double R2 = compute_R2(srts, in[0].type->mass(), in[1].type->mass());
@@ -562,7 +558,7 @@ void MicrocanonicalSampler::random_three_to_two(
       smash::random::uniform_int<size_t>(0, Ncells - 1),
       smash::random::uniform_int<size_t>(0, Ncells - 1)};
   size_t i_channel = smash::random::uniform_int<size_t>(0, N2 - 1);
-  std::array<smash::ParticleTypePtr, 2> out_types = channels2_[BSQ][i_channel];
+  std::array<ParticleTypePtr, 2> out_types = channels2_[BSQ][i_channel];
   const double R3 = compute_R3(
       srts, in[0].type->mass(), in[1].type->mass(), in[2].type->mass());
   const double R2 =
@@ -663,7 +659,7 @@ void MicrocanonicalSampler::random_two_to_two(
       smash::random::uniform_int<size_t>(0, Ncells - 1),
       smash::random::uniform_int<size_t>(0, Ncells - 1)};
   size_t i_channel = smash::random::uniform_int<size_t>(0, N2 - 1);
-  std::array<smash::ParticleTypePtr, 2> out_types = channels2_[BSQ][i_channel];
+  std::array<ParticleTypePtr, 2> out_types = channels2_[BSQ][i_channel];
   const double R2in = compute_R2(srts, in[0].type->mass(), in[1].type->mass());
   const double R2out = compute_R2(srts, out_types[0]->mass(), out_types[1]->mass());
   out[0] = {smash::FourVector(), out_types[0], cell[0], true};
@@ -815,12 +811,12 @@ void MicrocanonicalSampler::renormalize_momenta(
 
 void MicrocanonicalSampler::test_3body_phase_space_sampling() {
   const double sqrts = 6.0;
-  const smash::ParticleTypePtr pi = &smash::ParticleType::find(0x111),
-                               N = &smash::ParticleType::find(0x2212),
-                               Delta = &smash::ParticleType::find(0x2224);
-  SamplerParticle a{smash::FourVector(), pi, 0, false},
-                  b{smash::FourVector(), N, 0, false},
-                  c{smash::FourVector(), Delta, 0, false};
+  ParticleType pi("pi", 0.138, 0.0, 0x111),
+               N("N", 0.938, 0.0, 0x2212),
+               Delta("D", 1.232, 0.115, 0x2224);
+  SamplerParticle a{smash::FourVector(), &pi, 0, false},
+                  b{smash::FourVector(), &N, 0, false},
+                  c{smash::FourVector(), &Delta, 0, false};
   for (size_t i = 0; i < 100000; i++) {
     MicrocanonicalSampler::sample_3body_phase_space(sqrts, a, b, c);
     std::cout << a.momentum << b.momentum << c.momentum << std::endl;
