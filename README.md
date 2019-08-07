@@ -91,38 +91,25 @@ are still missing and the further testing is ongoing.
 
 ## How to install <a name = "installing"></a>
 
-This project relies heavily on the [SMASH](https://smash-transport.github.io/) library.
-It uses particles and their properties from SMASH, as well as some nice SMASH
-infrastructure.
+This project uses some code from the [SMASH](https://smash-transport.github.io/),
+mostly particles, their properties, and some nice SMASH infrastructure.
 
 
 ### Prequisites
 
 Before compiling install these:
 
-1. Eigen3 library (eigen.tuxfamily.org)
+1. cmake
 2. GNU Scientific Library (GSL) >= 1.15
-3. SMASH library (smash-transport.github.io), which requires the first two anyway.
+3. git
 
 ### Compiling
 
-- Set the SMASH_DIR environment variable by executing
-
-      export SMASH_DIR=[...]/smash
-
-- Copy the cmake files to find the libraries for the project
-
-      cp -r $SMASH_DIR/cmake ..
-
-- Run cmake and make
+- In the main project directory run
 
       mkdir build && cd build
       cmake ..
       make
-
-- If Pythia is not found, try
-
-      cmake .. -DPythia_CONFIG_EXECUTABLE=[...]/pythia8235/bin/pythia8-config
 
 ## How to use it? <a name = "usage"></a>
 
@@ -165,21 +152,16 @@ Format specifications: To be described here.
 
 **Particle list** to be sampled is the second thing that the sampler needs.  It
 is the list of possible particles to sample. The list itself is given in a file
-in [SMASH format](http://theory.gsi.de/~smash/doc/1.6/inputparticles.html).
+in [SMASH format](http://theory.gsi.de/~smash/doc/1.6/inputparticles.html)
+or in iSS format.
 Normally, it is expected that the users just take the full SMASH particles.txt
-file and remove particles until they get the desired particle list. Particle
-list has to be supplied by their decaymodes, again in [SMASH
-format](http://theory.gsi.de/~smash/doc/1.6/inputdecaymodes.html).  Same
-strategy works here, as for particles: copy the decaymodes.txt from SMASH and
-edit it. The decaymodes currently do not influence the sampling, but they might
-be necessary in future, if one wants to (a) decay the resonances (b) take
-resonance spectral functions into account.
+file and remove particles until they get the desired particle list.
 
-By default the default SMASH particle list and decaymodes are used. Here is an example of sampling
+By default the default SMASH particle list is used. Here is an example of sampling
 a custom particle list:
 
-      ./microcanonical --particles  ../my_edited_particles.txt,../my_edited_decaymodes.txt
-      ./microcanonical --particles  only_pi0.txt,empty_decaymodes.txt
+      ./microcanonical --particles  ../my_edited_particles.txt,SMASH
+      ./microcanonical --particles  only_pi0.txt,SMASH
 
 Parameters like patch size or number of events can be specified via command-line options:
 
