@@ -3,6 +3,7 @@
 #include "hydro_cells.h"
 
 #include "smash/constants.h"
+#include "smash/random.h"
 
 #include <fstream>
 
