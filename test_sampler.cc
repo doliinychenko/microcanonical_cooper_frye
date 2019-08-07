@@ -287,7 +287,7 @@ void usage(const int rc, const std::string &progname) {
 
 int main(int argc, char **argv) {
   smash::random::set_seed(generate_63bit_seed());
-  std::string particles_file = "../src/smash/input/particles.txt";
+  std::string particles_file = "../smash/input/particles.txt";
   ParticleListFormat particles_file_format =
        ParticleListFormat::SMASH;
   double Epatch = 10.0;  // GeV
@@ -389,7 +389,7 @@ int main(int argc, char **argv) {
         N_printout = std::stoi(optarg);
         break;
       case 'r':
-        read_particle_list("../src/smash/input/particles.txt",
+        read_particle_list("../smash/input/particles.txt",
                            ParticleListFormat::SMASH);
         reproduce_arxiv_1902_09775();
         std::exit(EXIT_SUCCESS);
