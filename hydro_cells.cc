@@ -471,6 +471,19 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
             << std::sqrt(mean_dT_sqr) << "  GeV." << std::endl;;
   std::cout << "Hypersurface baryochemical potential: " << mean_muB << "±"
             << std::sqrt(mean_dmuB_sqr) << "  GeV." << std::endl;
+
+  /**
+   * Try to avoid splitting into unequal patches by energy. Instead find such
+   * patch energy that patches will be equal by their rest frame energy.
+   */
+  const double Erest_total = this->pmu().abs();
+  const int n_patches_expected = std::trunc(Erest_total / E_patch_max);
+  std::cout << "Expected number of patches: " << n_patches_expected
+            << std::endl;
+  E_patch_max = Erest_total / n_patches_expected;
+  std::cout << "Adjusted rest frame energy per patch [GeV] = "
+            << E_patch_max << std::endl;
+
   /**
    * My home-made patch splitting algorithm:
    * 1) Start from the non-clustered cell with largest energy
