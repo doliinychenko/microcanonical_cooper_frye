@@ -404,6 +404,11 @@ std::vector<int> HyperSurfacePatch::sample_weighted_01_permutation(int sum,
   const size_t N = v.size();
   std::vector<int> result(N, 0);
   std::fill_n(result.begin(), sum, 1);
+  assert(sum <= static_cast<int>(N));
+  // Case of all ones or all zeros, nothing to shuffle
+  if (sum == 0 || sum == static_cast<int>(N)) {
+    return result;
+  }
   // Metropolis shuffle with weights given by v
   constexpr size_t N_shuffle = 1E4;
   for (size_t i = 0; i < N_shuffle; i++) {
