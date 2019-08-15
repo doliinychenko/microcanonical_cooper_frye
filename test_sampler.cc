@@ -222,6 +222,9 @@ void sample(const std::string hypersurface_input_file,
     throw std::runtime_error("Can't open the output file.");
   }
 
+  output_file <<
+      "#!OSCAR2013 particle_lists t x y z mass p0 px py pz pdg ID charge\n"
+      "# Units: fm fm fm fm GeV GeV GeV GeV GeV none none none\n";
   for (size_t j = 0; j < N_printout; j++) {
     step_until_sufficient_decorrelation(sampler, patches, particles,
                                         N_decorrelate, sufficient_decorrelation);
@@ -229,18 +232,24 @@ void sample(const std::string hypersurface_input_file,
     if (j % 10000 == 0 && j != 0) {
       std::cout << "sample " << j << std::endl;
     }
-    output_file << "# sample " << j << std::endl;
+    output_file << "# event " << j << std::endl;
+    int particle_counter = 0;
     for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
       for (const auto &particle : particles[i_patch]) {
         const auto &cell = patches[i_patch].cell(particle.cell_index);
         const smash::FourVector p = particle.momentum;
         output_file << cell.r.x0() << " " << cell.r.x1() << " "
                     << cell.r.x2() << " " << cell.r.x3() << " "
+                    << particle.type->mass() << " "
                     << p.x0() << " " << p.x1() << " "
                     << p.x2() << " " << p.x3() << " "
-                    << particle.type->pdgcode().get_decimal() << std::endl;
+                    << particle.type->pdgcode().get_decimal() << " "
+                    << particle_counter << " "
+                    << particle.type->pdgcode().charge() << std::endl;
+        particle_counter++;
       }
     }
+    output_file << "# event " << j << " end" << std::endl;
   }
 
   for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
