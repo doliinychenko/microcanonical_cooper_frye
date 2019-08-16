@@ -4,12 +4,21 @@ sudo: required
 dist: trusty
 
 before_install:
-  - sudo apt-get install libgsl0ldbl
+  - export PARENT_DIR=$(pwd)
+  # gsl
+  - wget http://ftpmirror.gnu.org/gsl/gsl-1.15.tar.gz &&
+    tar -zxf gsl-1.15.tar.gz && rm gsl-1.15.tar.gz &&
+    export GSL=$(pwd)/gsl-1.15 &&
+    cd $GSL &&
+    ./configure --prefix $GSL &&
+    make -j2 --silent &&
+    make install --silent &&
+    cd $PARENT_DIR 
 
 install:
   - mkdir build
   - cd build
-  - cmake ../
+  - cmake ../ -DGSL_ROOT_DIR=$GSL
   - make -j$(nproc)
 
 script:
