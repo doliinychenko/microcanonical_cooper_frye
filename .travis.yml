@@ -1,0 +1,13 @@
+language: cpp
+compiler: g++
+sudo: required
+dist: trusty
+
+before_install:
+  - sudo apt-get install libgsl0ldbl
+
+install:
+  - mkdir build
+  - cd build
+  - cmake ../
+  - make -j$(nproc)
