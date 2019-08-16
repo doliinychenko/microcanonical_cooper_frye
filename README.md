@@ -34,7 +34,7 @@ hydrodynamical variables (pressure, energy density, etc) have to be transformed
 into particles. This is called particlization. Usually particlization is done
 in a way that does not conserve energy, momentum, and quantum numbers (baryon
 number, strangeness, charge) in each single event (event is a single run of a
-hydroynamical simulation). Instead, only conservation on the event average is
+hydrodynamical simulation). Instead, only conservation on the event average is
 fulfilled. For more detailes on the usual particlization see [a paper by P.
 Huovinen and H. Petersen](https://arxiv.org/pdf/1206.3371.pdf), mainly Sections
 3 and 4.
