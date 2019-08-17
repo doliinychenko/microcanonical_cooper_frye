@@ -1,5 +1,4 @@
 [![Build Status](https://travis-ci.org/doliinychenko/microcanonical_cooper_frye.svg?branch=master)](https://travis-ci.org/doliinychenko/microcanonical_cooper_frye)
-
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 # Sampling particles on a hypersurface with local event-by-event energy, momentum, baryon number, strangeness, and charge conservation.
