@@ -5,11 +5,11 @@ programname=$0
 function usage {
     echo "Microcanonical sampling of particles in a static box"
     echo
-    echo "usage: $programname -V Volume -T temperature [-p particles_file,decaymodes_file] [-s path/to/sampler]"
+    echo "usage: $programname -V Volume -T temperature [-p particles_file] [-s path/to/sampler]"
     echo
     echo "  -V Volume:  volume of the box in fm^3"
     echo "  -T Temperature:  temperature of particles in the box in GeV"
-    echo "  -p particles.txt,decaymodes.txt"
+    echo "  -p particles.txt"
     echo "     files with hadron list and their decays in SMASH format"
     echo "     (see http://theory.gsi.de/~smash/doc/1.6/inputparticles.html)"
     echo "     By default full SMASH hadron list with masses < 2.5 GeV is used."
@@ -35,7 +35,7 @@ while getopts ":V:T:p:s:h" opt; do
       T="$OPTARG"
       ;;
     p)
-      particles_decaymodes="-p $OPTARG"
+      particles="-p $OPTARG"
       ;;
     s)
       sampler="$OPTARG"
@@ -63,12 +63,12 @@ if [ "$#" -lt 2 ] || [ "$#" -gt 8 ]; then
 fi
 
 echo "Volume $V fm^3, Temperature $T GeV"
-if [ ! -z $particles_decaymodes ]; then
-  echo "Taking particle list (and their decaymodes) from ${particles_decaymodes}"
+if [ ! -z $particles ]; then
+  echo "Taking particle list from ${particles}"
 fi
 
 hyper_file="hydro_cells_static_V${V}_T${T}"
 echo "${V} 0.0 0.0 0.0  0.0 0.0 0.0 ${T} 0.0 0.0 0.0" > ${hyper_file}
 echo "Running ${sampler}"
-time ${sampler} ${particles_decaymodes} -s ${hyper_file},Dima_format -o static_box_V${V}_T${T}.dat -n 10000
+time ${sampler} ${particles},SMASH -s ${hyper_file},Dima_format -o static_box_V${V}_T${T}.dat -n 1000000
 echo "Finished running ${sampler}"
