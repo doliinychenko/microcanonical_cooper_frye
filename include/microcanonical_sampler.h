@@ -52,7 +52,8 @@ public:
   void one_markov_chain_step(const HyperSurfacePatch &hypersurface,
                              SamplerParticleList &particles);
   void random_two_to_two(const HyperSurfacePatch &hypersurface,
-                           SamplerParticleList &particles);
+                           SamplerParticleList &particles,
+                           bool elastic);
 
   /// Set the level of debug printout
   void set_debug_printout(int a) { debug_printout_ = a; }

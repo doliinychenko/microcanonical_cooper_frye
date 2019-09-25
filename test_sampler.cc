@@ -121,8 +121,18 @@ void step_until_sufficient_decorrelation(
       sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
     }
   }
-  // Do 2<->2 until decorrelation. This may bias momentum correlations,
-  // but does not bias multiplicity distribution.
+  // Fixed amount of inelastic 2<->2. Forcing decorrelation in inelastic
+  // 2<->2 leads to some biases in particle number distribution.
+  #pragma omp parallel for
+  for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+    for (size_t i = 0; i < min_steps_number; ++i) {
+      constexpr bool elastic = false;
+      sampler.random_two_to_two(patches[i_patch], particles[i_patch], elastic);
+    }
+  }
+
+  // Do elastic 2<->2 until decorrelation. This may bias momentum correlations,
+  // but does not bias any multiplicity distribution.
   #pragma omp parallel for
   for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
     for (auto &particle : particles[i_patch]) {
@@ -131,7 +141,8 @@ void step_until_sufficient_decorrelation(
     size_t non_decorr_counter;
     do {
       for (size_t i = 0; i < min_steps_number; ++i) {
-        sampler.random_two_to_two(patches[i_patch], particles[i_patch]);
+        constexpr bool elastic = true;
+        sampler.random_two_to_two(patches[i_patch], particles[i_patch], elastic);
       }
       non_decorr_counter = std::count_if(
           particles[i_patch].begin(), particles[i_patch].end(),
@@ -398,6 +409,7 @@ int main(int argc, char **argv) {
         }
       case 'n':
         N_printout = std::stoi(optarg);
+        std::cout << "Number of events: " << N_printout << std::endl;
         break;
       case 'r':
         read_particle_list("../smash/input/particles.txt",
@@ -431,7 +443,7 @@ int main(int argc, char **argv) {
 
   read_particle_list(particles_file, particles_file_format);
 
-  const size_t N_warmup = 1E6, N_decorrelate = 500;
+  const size_t N_warmup = 1E6, N_decorrelate = 200;
   constexpr double max_mass = 2.5;  // GeV
   sample(hypersurface_input_file, hypersurface_file_format, eta_for_2Dhydro,
          output_file, patches_output_filename,

@@ -633,7 +633,8 @@ void MicrocanonicalSampler::random_three_to_two(
 
 void MicrocanonicalSampler::random_two_to_two(
     const HyperSurfacePatch &hypersurface,
-    SamplerParticleList &particles) {
+    SamplerParticleList &particles,
+    bool elastic) {
   const size_t Npart = particles.size();
   const size_t Ncells = hypersurface.Ncells();
   // Choose 2 random particles
@@ -659,7 +660,10 @@ void MicrocanonicalSampler::random_two_to_two(
       smash::random::uniform_int<size_t>(0, Ncells - 1),
       smash::random::uniform_int<size_t>(0, Ncells - 1)};
   size_t i_channel = smash::random::uniform_int<size_t>(0, N2 - 1);
-  std::array<ParticleTypePtr, 2> out_types = channels2_[BSQ][i_channel];
+  std::array<ParticleTypePtr, 2> out_types{in[0].type, in[1].type};
+  if (!elastic) {
+    out_types = channels2_[BSQ][i_channel];
+  }
   const double R2in = compute_R2(srts, in[0].type->mass(), in[1].type->mass());
   const double R2out = compute_R2(srts, out_types[0]->mass(), out_types[1]->mass());
   out[0] = {smash::FourVector(), out_types[0], cell[0], true};
@@ -704,6 +708,11 @@ void MicrocanonicalSampler::random_two_to_two(
 
   double cells_factor = compute_cells_factor(in, out, hypersurface);
 
+  if (elastic) {
+    assert(phase_space_factor == 1.0);
+    assert(spin_factor == 1.0);
+    assert(combinatorial_factor == 1.0);
+  }
   const double w = phase_space_factor * spin_factor * combinatorial_factor *
                    energy_factor * cells_factor;
 
