@@ -339,6 +339,8 @@ int main(int argc, char **argv) {
           std::string arg_string(optarg);
           std::vector<std::string> pd_strings = smash::split(arg_string, ',');
           if (pd_strings.size() != 2) {
+            std::cout << "Need particle list file and format separated "
+                  << "by comma: particle_list,format" << std::endl;
             usage(EXIT_FAILURE, progname);
           }
           particles_file = pd_strings[0];
@@ -386,7 +388,7 @@ int main(int argc, char **argv) {
                       << std::endl;
             usage(EXIT_FAILURE, progname);
           }
-         if (args.size() != 3) {
+          if (args.size() != 3) {
             usage(EXIT_FAILURE, progname);
           }
           eta_for_2Dhydro[0] = std::stod(args[0]);
