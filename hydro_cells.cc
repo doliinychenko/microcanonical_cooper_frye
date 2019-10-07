@@ -5,6 +5,8 @@
 #include "smash/constants.h"
 #include "smash/random.h"
 
+#include <iostream>
+#include <iomanip>
 #include <fstream>
 
 HyperSurfacePatch::HyperSurfacePatch(
@@ -69,40 +71,53 @@ void HyperSurfacePatch::sum_up_totals_from_cells() {
 
 
 void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
-  std::ifstream infile(filename);
+  std::ifstream infile(filename, std::ios::binary);
   if (!infile.good()) {
     throw std::runtime_error("Could not open file " + filename);
   }
-  std::string line;
+
   size_t line_counter = 0;
-  while (std::getline(infile, line)) {
-    line_counter++;
-    std::istringstream iss(line);
-    double ds0, ds1, ds2, ds3, u0, u1, u2, u3, En, T, muB, muS, muQ, tau, x, y,
-        eta;
-    // clang-format off
-    if (!(iss >> tau >> x >> y >> eta
-              >> ds0 >> ds1 >> ds2 >> ds3
-              >> u0 >> u1 >> u2 >> u3
-              >> En >> T >> muB)) {
+  while (true) {
+    float array[34];
+    for (int i = 0; i < 34; i++) {
+      float temp = 0.;
+      infile.read((char*)&temp, sizeof(float));
+      array[i] = temp;
+    }
+    if (infile.eof()) {
       break;
     }
-    // clang-format on
+    line_counter++;
+    double ds0, ds1, ds2, ds3, u0, u1, u2, u3, T, muB, muS, muQ, tau, x, y,
+        eta;
+    tau = array[0];
+    x   = array[1];
+    y   = array[2];
+    eta = array[3];
+    ds0 = array[4];
+    ds1 = array[5];
+    ds2 = array[6];
+    ds3 = array[7];
+    u0  = array[8];
+    u1  = array[9];
+    u2  = array[10];
+    u3  = array[11];
+
+    T   = array[13] * smash::hbarc;
+    muB = array[14] * smash::hbarc;
+    muS = array[15] * smash::hbarc;
+    muQ = array[16] * smash::hbarc;
+
     smash::FourVector u_Milne(u0, u1, u2, u3);
     assert(T >= 0.0);
     smash::FourVector u_Milne_test(u0, u1, u2, u3);
-    if (std::abs(u_Milne_test.sqr() - 1.0) > 1.e-9) {
+    if (std::abs(u_Milne_test.sqr() - 1.0) > 2.e-6) {
       std::cout << "Warning at reading from MUSIC output (line "
                 << line_counter << "): "
                 << "u_Milne (u_eta multiplied by tau) = " << u_Milne_test
                 << ", u^2 == 1 is not fulfilled with error "
-                << std::abs(u_Milne_test.sqr() - 1.0) << std::endl;
+                << std::setprecision(9) << std::abs(u_Milne_test.sqr() - 1.0) << std::endl;
     }
-    En *= smash::hbarc;
-    T *= smash::hbarc;
-    muB *= smash::hbarc;
-    muS = 0.0;
-    muQ = 0.0;
     const double umu_dsigmamu_music = tau * (ds0 * u0 + ds1 * u1 +
                                              ds2 * u2 + ds3 * u3 / tau);
     // Transforming from Milne to Cartesian
@@ -116,20 +131,20 @@ void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
     }
     smash::FourVector ds(tau * ch_eta * ds0 - ds3 * sh_eta, - tau * ds1,
                          - tau * ds2, tau * sh_eta * ds0 - ds3 * ch_eta);
+/*
     if (ds.sqr() < 0) {
       std::cout << "dsigma^2 < 0, dsigma = " << ds
              << ", original dsigma = " << smash::FourVector(ds0, ds1, ds2, ds3)
              << ", T = " << T << ", muB = " << muB << ", cell "
              << line_counter << std::endl;
     }
-
+*/
     // Check that the umu*dsigmamu remains invariant after conversion
     const double umu_dsigmamu = ds.Dot(u);
     if (std::abs(umu_dsigmamu - umu_dsigmamu_music) > 1.e-4) {
       std::cout << "u^mu * dsigma_mu should be invariant: "
                 << umu_dsigmamu << " == " << umu_dsigmamu_music << std::endl;
     }
-
     cells_.push_back({{t, x, y, z}, ds, u, {0.0, 0.0, 0.0, 0.0},
                       T, muB, muS, muQ, 0.0, 0.0, 0.0});
   }
