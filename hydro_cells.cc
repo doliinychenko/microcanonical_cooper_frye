@@ -57,12 +57,14 @@ void HyperSurfacePatch::sum_up_totals_from_cells() {
   B_tot_nonint_ = 0.0;
   S_tot_nonint_ = 0.0;
   Q_tot_nonint_ = 0.0;
+  N_tot_ = 0.0;
   pmu_tot_ = smash::FourVector();
   for (hydro_cell &a_cell : cells_) {
     pmu_tot_ += a_cell.pmu;
     B_tot_nonint_ += a_cell.B;
     S_tot_nonint_ += a_cell.S;
     Q_tot_nonint_ += a_cell.Q;
+    N_tot_ += a_cell.Ntot;
   }
   B_tot_ = static_cast<int>(std::round(B_tot_nonint_));
   S_tot_ = static_cast<int>(std::round(S_tot_nonint_));
@@ -76,6 +78,7 @@ void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
     throw std::runtime_error("Could not open file " + filename);
   }
 
+  double umudsigmamu_pos = 0.0, umudsigmamu_neg = 0.0;
   size_t line_counter = 0;
   while (true) {
     float array[34];
@@ -131,14 +134,17 @@ void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
     }
     smash::FourVector ds(tau * ch_eta * ds0 - ds3 * sh_eta, - tau * ds1,
                          - tau * ds2, tau * sh_eta * ds0 - ds3 * ch_eta);
-/*
-    if (ds.sqr() < 0) {
-      std::cout << "dsigma^2 < 0, dsigma = " << ds
-             << ", original dsigma = " << smash::FourVector(ds0, ds1, ds2, ds3)
+    if (umu_dsigmamu_music < 0.0) {
+      umudsigmamu_neg += umu_dsigmamu_music;
+     /*
+      std::cout << "umu * dsigmamu < 0, dsigma = " << ds
+             << ", u = " << u
              << ", T = " << T << ", muB = " << muB << ", cell "
              << line_counter << std::endl;
+      */
+    } else {
+      umudsigmamu_pos += umu_dsigmamu_music;
     }
-*/
     // Check that the umu*dsigmamu remains invariant after conversion
     const double umu_dsigmamu = ds.Dot(u);
     if (std::abs(umu_dsigmamu - umu_dsigmamu_music) > 1.e-4) {
@@ -146,9 +152,12 @@ void HyperSurfacePatch::read_from_MUSIC_file(const std::string &filename) {
                 << umu_dsigmamu << " == " << umu_dsigmamu_music << std::endl;
     }
     cells_.push_back({{t, x, y, z}, ds, u, {0.0, 0.0, 0.0, 0.0},
-                      T, muB, muS, muQ, 0.0, 0.0, 0.0});
+                      T, muB, muS, muQ, 0.0, 0.0, 0.0, 0.0});
   }
   std::cout << cells_.size() << " cells read from the file " << filename
+            << std::endl;
+  std::cout << "Negative contributions estimate [%]: "
+            << umudsigmamu_neg / (umudsigmamu_pos + umudsigmamu_neg) * 100
             << std::endl;
 }
 
@@ -188,7 +197,7 @@ void HyperSurfacePatch::read_from_Steinheimer_file(const std::string &fname) {
     muQ = 0.0;
     t = 0.0;
     cells_.push_back({{t, x, y, z}, ds, u, {0.0, 0.0, 0.0, 0.0},
-                     T, muB, muS, muQ, 0.0, 0.0, 0.0});
+                     T, muB, muS, muQ, 0.0, 0.0, 0.0, 0.0});
     if (line_counter % 100000 == 0) {
       std::cout << "Cell " << line_counter << std::endl;
     }
@@ -218,7 +227,7 @@ void HyperSurfacePatch::read_from_file(const std::string &filename) {
     u *= gamma;
     assert(std::abs(u.abs() - 1.0) < 1.e-15);
     cells_.push_back({{0, 0, 0, 0}, {ds0, ds1, ds2, ds3}, u,
-                      {0.0, 0.0, 0.0, 0.0}, T, muB, muS, muQ, 0.0, 0.0, 0.0});
+                      {0.0, 0.0, 0.0, 0.0}, T, muB, muS, muQ, 0.0, 0.0, 0.0, 0.0});
   }
 }
 
@@ -280,8 +289,8 @@ void HyperSurfacePatch::read_from_VISH_2files(const std::string &folder_name,
     assert(std::abs(u.abs() - 1.0) < 1.e-15);
     // For eta = 0, there is no difference between Milne and Cartesian
     midrapidity_cells.push_back({{tau_fo, x_fo, y_fo, 0},
-                   {da0 * tau, -da1 * tau, -da2 * tau, 0.0}, u,
-                   {0.0, 0.0, 0.0, 0.0}, Tdec, muB, muS, muQ, 0.0, 0.0, 0.0});
+               {da0 * tau, -da1 * tau, -da2 * tau, 0.0}, u,
+               {0.0, 0.0, 0.0, 0.0}, Tdec, muB, muS, muQ, 0.0, 0.0, 0.0, 0.0});
     line_counter++;
   }
   std::cout << "Finished reading, read " << line_counter
@@ -315,7 +324,7 @@ void HyperSurfacePatch::read_from_VISH_2files(const std::string &folder_name,
       assert(std::abs(u.Dot(dsig) - cell.u.Dot(cell.dsigma) * deta) < 1.e-9);
       cells_.push_back({r, dsig, u, {0.0, 0.0, 0.0, 0.0},
                        cell.T, cell.muB, cell.muS, cell.muQ,
-                       0.0, 0.0, 0.0});
+                       0.0, 0.0, 0.0, 0.0});
     }
     eta += deta;
   }
@@ -339,6 +348,7 @@ void HyperSurfacePatch::compute_totals() {
     this_cell.B = 0.0;
     this_cell.S = 0.0;
     this_cell.Q = 0.0;
+    this_cell.Ntot = 0.0;
     const double T = this_cell.T;
     for (const ParticleTypePtr t : sampled_types_) {
       const double m = t->mass();
@@ -393,6 +403,7 @@ void HyperSurfacePatch::compute_totals() {
       this_cell.B += t->baryon_number() * number_from_cell;
       this_cell.S += t->strangeness() * number_from_cell;
       this_cell.Q += t->charge() * number_from_cell;
+      this_cell.Ntot += number_from_cell;
       smash::FourVector pmu_cell(dsigma.x0() * x2, -dsigma.x1() * x3,
                                  -dsigma.x2() * x3, -dsigma.x3() * x3);
       pmu_cell *= t->pdgcode().spin_degeneracy();
@@ -406,6 +417,7 @@ void HyperSurfacePatch::compute_totals() {
     this_cell.B *= a;
     this_cell.S *= a;
     this_cell.Q *= a;
+    this_cell.Ntot *= a;
   }
   this->sum_up_totals_from_cells();
 }
@@ -462,7 +474,7 @@ std::vector<int> HyperSurfacePatch::sample_multinomial(int sum,
   return result;
 }
 
-std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
+std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double N_patch_max) {
   // Compute variances of temperature and muB on the hypersurface
   // They are needed for clustering metric
   double mean_T = 0.0, mean_muB = 0.0,
@@ -479,30 +491,35 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
   mean_muB_sqr /= Ncells();
   double mean_dT_sqr = mean_T_sqr - mean_T * mean_T,
          mean_dmuB_sqr = mean_muB_sqr - mean_muB * mean_muB;
-  if (mean_dT_sqr < 1.e-3) {
+  std::cout << "Hypersurface temperature: " << mean_T << "±"
+            << std::sqrt(mean_dT_sqr) << "  GeV." << std::endl;;
+  std::cout << "Hypersurface baryochemical potential: " << mean_muB << "±"
+            << std::sqrt(mean_dmuB_sqr) << "  GeV." << std::endl;
+
+  if (mean_dT_sqr < 1.e-6) {
     mean_dT_sqr = 0.0;
   }
-  if (mean_dmuB_sqr < 1.e-3) {
+  if (mean_dmuB_sqr < 1.e-6) {
     mean_dmuB_sqr = 0.0;
   }
-  double inv_dT_sqr = (mean_dT_sqr < 1.e-3) ? 0.0 : 1.0 / mean_dT_sqr,
-         inv_dmuB_sqr = (mean_dmuB_sqr < 1.e-3) ? 0.0 : 1.0 / mean_dmuB_sqr;
+  double inv_dT_sqr = (mean_dT_sqr < 1.e-6) ? 0.0 : 1.0 / mean_dT_sqr,
+         inv_dmuB_sqr = (mean_dmuB_sqr < 1.e-6) ? 0.0 : 1.0 / mean_dmuB_sqr;
   std::cout << "Hypersurface temperature: " << mean_T << "±"
             << std::sqrt(mean_dT_sqr) << "  GeV." << std::endl;;
   std::cout << "Hypersurface baryochemical potential: " << mean_muB << "±"
             << std::sqrt(mean_dmuB_sqr) << "  GeV." << std::endl;
 
   /**
-   * Try to avoid splitting into unequal patches by energy. Instead find such
-   * patch energy that patches will be equal by their rest frame energy.
+   * Try to avoid splitting into unequal patches by mean number of particles
+   * Ntot. Instead find such Ntot that patches will be equal.
    */
-  const double Erest_total = this->pmu().abs();
-  const int n_patches_expected = std::trunc(Erest_total / E_patch_max);
+  const double Ntot_hyper = this->Ntot();
+  const int n_patches_expected = std::trunc(Ntot_hyper / N_patch_max);
   std::cout << "Expected number of patches: " << n_patches_expected
             << std::endl;
-  E_patch_max = Erest_total / n_patches_expected;
-  std::cout << "Adjusted rest frame energy per patch [GeV] = "
-            << E_patch_max << std::endl;
+  N_patch_max = Ntot_hyper / n_patches_expected;
+  std::cout << "Adjusted mean number of particles per patch [GeV] = "
+            << N_patch_max << std::endl;
 
   /**
    * My home-made patch splitting algorithm:
@@ -560,11 +577,11 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
     });
 
     // (3) Collect cells to patch until energy is enough or no cells left
-    smash::FourVector pmu_patch = smash::FourVector();
+    double Ntot_patch = 0.0;
     std::vector<hydro_cell>::iterator cluster_start = nonclustered_begin;
-    while (pmu_patch.sqr() < E_patch_max * E_patch_max &&
+    while (Ntot_patch < N_patch_max &&
            nonclustered_begin != cells_.end()) {
-      pmu_patch += nonclustered_begin->pmu;
+      Ntot_patch += nonclustered_begin->Ntot;
       std::advance(nonclustered_begin, 1);
     }
 /*
@@ -680,7 +697,6 @@ std::ostream &operator<<(std::ostream &out, const HyperSurfacePatch &patch) {
              << ", S = " << patch.S()
              << ", Q = " << patch.Q()
              << ", n_cells = " << patch.Ncells()
-             << ", quantum statistics "
-             << (patch.quantum_statistics() ? "ON" : "OFF");
+             << ", Ntot = " << patch.Ntot();
   // clang-format on
 }

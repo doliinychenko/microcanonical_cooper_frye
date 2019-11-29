@@ -28,6 +28,7 @@ public:
     double B;
     double S;
     double Q;
+    double Ntot;
   };
 
   /**
@@ -91,6 +92,7 @@ public:
     return sampled_types_;
   }
   size_t Ncells() const { return cells_.size(); }
+  double Ntot() const { return N_tot_; }
 
 private:
   /// Read in cells from file of MUSIC format
@@ -115,7 +117,7 @@ private:
   std::vector<hydro_cell> cells_;
   std::vector<ParticleTypePtr> sampled_types_;
   smash::FourVector pmu_tot_;
-  double B_tot_nonint_, S_tot_nonint_, Q_tot_nonint_;
+  double B_tot_nonint_, S_tot_nonint_, Q_tot_nonint_, N_tot_;
   int B_tot_, S_tot_, Q_tot_;
   bool quantum_statistics_;
   /// Maximal number of terms in the series for quantum formulas

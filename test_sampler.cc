@@ -160,7 +160,7 @@ void sample(const std::string hypersurface_input_file,
             const std::string output_file_name,
             const std::string patches_output_filename, size_t N_warmup,
             size_t N_decorrelate, size_t N_printout,
-            double max_mass, double E_patch) {
+            double max_mass, double Ntot_patch) {
   constexpr bool quantum_statistics = false;
   /**
    * A function, which defines, which species will be sampled. For
@@ -182,7 +182,7 @@ void sample(const std::string hypersurface_input_file,
   std::cout << "Full hypersurface: " << hyper << std::endl;
   MicrocanonicalSampler sampler(is_sampled_type, 0, quantum_statistics);
 
-  auto patches = hyper.split(E_patch);
+  auto patches = hyper.split(Ntot_patch);
   size_t number_of_patches = patches.size();
 
   // Save labelled patches
@@ -294,7 +294,8 @@ void usage(const int rc, const std::string &progname) {
       "  -n, --nevents           number of sampled instances to output\n"
       "  -r, --reproduce_1902_09775 reproduce results of arxiv::1902.09775\n"
       "  -t, --test                 run testing functions\n"
-      "  -e, --energy_patch         set maximal energy [GeV] in the patch\n"
+      "  -e, --mean_particles_per_patch  set patch \"volume\" in terms of\n"
+      "                                  mean number of particles per patch\n"
       "  -o, --outputfile           output file name, where sampled particles\n"
       "                             coordinates, momenta, and pdg ids\n"
       "                             will be printed out\n"
@@ -310,7 +311,7 @@ int main(int argc, char **argv) {
   std::string particles_file = "../smash/input/particles.txt";
   ParticleListFormat particles_file_format =
        ParticleListFormat::SMASH;
-  double Epatch = 10.0;  // GeV
+  double Ntot_patch = 40.0;  // number of particles per patch
   size_t N_printout = 1E4;
   std::string output_file = "sampled_particles.dat",
               patches_output_filename = "";
@@ -421,8 +422,9 @@ int main(int argc, char **argv) {
         MicrocanonicalSampler::test_3body_phase_space_sampling();
         std::exit(EXIT_SUCCESS);
       case 'e':
-        Epatch = std::stod(optarg);
-        std::cout << "Using patch energy " << Epatch << " GeV" << std::endl;
+        Ntot_patch = std::stod(optarg);
+        std::cout << "Using patch mean number of particles "
+                  << Ntot_patch << " GeV" << std::endl;
         break;
       case 'o':
         output_file = optarg;
@@ -447,5 +449,5 @@ int main(int argc, char **argv) {
   constexpr double max_mass = 2.5;  // GeV
   sample(hypersurface_input_file, hypersurface_file_format, eta_for_2Dhydro,
          output_file, patches_output_filename,
-         N_warmup, N_decorrelate, N_printout, max_mass, Epatch);
+         N_warmup, N_decorrelate, N_printout, max_mass, Ntot_patch);
 }
