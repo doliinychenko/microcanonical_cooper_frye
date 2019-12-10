@@ -480,14 +480,14 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
   mean_muB_sqr /= Ncells();
   double mean_dT_sqr = mean_T_sqr - mean_T * mean_T,
          mean_dmuB_sqr = mean_muB_sqr - mean_muB * mean_muB;
-  if (mean_dT_sqr < 1.e-3) {
+  if (mean_dT_sqr < 1.e-6) {
     mean_dT_sqr = 0.0;
   }
-  if (mean_dmuB_sqr < 1.e-3) {
+  if (mean_dmuB_sqr < 1.e-6) {
     mean_dmuB_sqr = 0.0;
   }
-  double inv_dT_sqr = (mean_dT_sqr < 1.e-3) ? 0.0 : 1.0 / mean_dT_sqr,
-         inv_dmuB_sqr = (mean_dmuB_sqr < 1.e-3) ? 0.0 : 1.0 / mean_dmuB_sqr;
+  double inv_dT_sqr = (mean_dT_sqr < 1.e-6) ? 0.0 : 1.0 / mean_dT_sqr,
+         inv_dmuB_sqr = (mean_dmuB_sqr < 1.e-6) ? 0.0 : 1.0 / mean_dmuB_sqr;
   std::cout << "Hypersurface temperature: " << mean_T << "±"
             << std::sqrt(mean_dT_sqr) << "  GeV." << std::endl;;
   std::cout << "Hypersurface baryochemical potential: " << mean_muB << "±"
