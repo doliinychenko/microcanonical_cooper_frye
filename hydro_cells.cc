@@ -299,22 +299,23 @@ void HyperSurfacePatch::read_from_VISH_2files(const std::string &folder_name,
     std::cout << "eta = " << eta << std::endl;
     const double ch_eta = std::cosh(eta),
                  sh_eta = std::sinh(eta);
-    for (const auto &cell : midrapidity_cells) {
-      const smash::FourVector r = {cell.r.x0() * ch_eta,
-                                   cell.r.x1(),
-                                   cell.r.x2(),
-                                   cell.r.x0() * sh_eta},
-                              u = {cell.u.x0() * ch_eta,
-                                   cell.u.x1(),
-                                   cell.u.x2(),
-                                   cell.u.x0() * sh_eta},
-                           dsig = {cell.dsigma.x0() * ch_eta * deta,
-                                   cell.dsigma.x1() * deta,
-                                   cell.dsigma.x2() * deta,
-                                   cell.dsigma.x0() * sh_eta * deta};
-      assert(std::abs(u.Dot(dsig) - cell.u.Dot(cell.dsigma) * deta) < 1.e-9);
+    for (const auto &a_cell : midrapidity_cells) {
+      const smash::FourVector r = {a_cell.r.x0() * ch_eta,
+                                   a_cell.r.x1(),
+                                   a_cell.r.x2(),
+                                   a_cell.r.x0() * sh_eta},
+                              u = {a_cell.u.x0() * ch_eta,
+                                   a_cell.u.x1(),
+                                   a_cell.u.x2(),
+                                   a_cell.u.x0() * sh_eta},
+                           dsig = {a_cell.dsigma.x0() * ch_eta * deta,
+                                   a_cell.dsigma.x1() * deta,
+                                   a_cell.dsigma.x2() * deta,
+                                   a_cell.dsigma.x0() * sh_eta * deta};
+      assert(std::abs(u.Dot(dsig) -
+             a_cell.u.Dot(a_cell.dsigma) * deta) < 1.e-9);
       cells_.push_back({r, dsig, u, {0.0, 0.0, 0.0, 0.0},
-                       cell.T, cell.muB, cell.muS, cell.muQ,
+                       a_cell.T, a_cell.muB, a_cell.muS, a_cell.muQ,
                        0.0, 0.0, 0.0});
     }
     eta += deta;
@@ -612,7 +613,7 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
    *  over patches is guaranteed to be right.
    */
   double B_hyper = 0.0, S_hyper = 0.0, Q_hyper = 0.0;
-  int B = 0, S = 0, Q = 0;
+  int B_floor = 0, S_floor = 0, Q_floor = 0;
   std::vector<double> dB, dS, dQ;
   std::cout << "Making sure patches have integer quantum numbers and they "
             << "sum up to the ones of the whole hypersurface." << std::endl;
@@ -620,9 +621,9 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
     B_hyper += patch.B_nonint();
     S_hyper += patch.S_nonint();
     Q_hyper += patch.Q_nonint();
-    B += static_cast<int>(std::floor(patch.B_nonint()));
-    S += static_cast<int>(std::floor(patch.S_nonint()));
-    Q += static_cast<int>(std::floor(patch.Q_nonint()));
+    B_floor += static_cast<int>(std::floor(patch.B_nonint()));
+    S_floor += static_cast<int>(std::floor(patch.S_nonint()));
+    Q_floor += static_cast<int>(std::floor(patch.Q_nonint()));
     dB.push_back(patch.B_nonint() - std::floor(patch.B_nonint()));
     dS.push_back(patch.S_nonint() - std::floor(patch.S_nonint()));
     dQ.push_back(patch.Q_nonint() - std::floor(patch.Q_nonint()));
@@ -634,13 +635,13 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
   std::cout << "B_hyper_int = " << B_hyper_int
             << ", S_hyper_int = " << S_hyper_int
             << ", Q_hyper_int = " << Q_hyper_int << std::endl;
-  B = B_hyper_int - B;
-  S = S_hyper_int - S;
-  Q = Q_hyper_int - Q;
+  const int B_remainder = B_hyper_int - B_floor;
+  const int S_remainder = S_hyper_int - S_floor;
+  const int Q_remainder = Q_hyper_int - Q_floor;
 
-  std::vector<int> dB_int = sample_weighted_01_permutation(B, dB),
-                   dS_int = sample_weighted_01_permutation(S, dS),
-                   dQ_int = sample_weighted_01_permutation(Q, dQ);
+  std::vector<int> dB_int = sample_weighted_01_permutation(B_remainder, dB),
+                   dS_int = sample_weighted_01_permutation(S_remainder, dS),
+                   dQ_int = sample_weighted_01_permutation(Q_remainder, dQ);
 
   const size_t Npatches = patches.size();
   for (size_t i = 0; i < Npatches; i++) {
