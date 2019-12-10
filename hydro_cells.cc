@@ -681,7 +681,6 @@ std::ostream &operator<<(std::ostream &out, const HyperSurfacePatch &patch) {
              << ", S = " << patch.S()
              << ", Q = " << patch.Q()
              << ", n_cells = " << patch.Ncells()
-             << ", quantum statistics "
-             << (patch.quantum_statistics() ? "ON" : "OFF");
+             << ", total rest frame energy = " << patch.pmu().abs() << " GeV.";
   // clang-format on
 }
