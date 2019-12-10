@@ -11,6 +11,7 @@
 #include "main.h"
 #include "microcanonical_sampler.h"
 #include "sampler_particletype_list.h"
+#include "statistics_summary.h"
 
 #include "smash/angles.h"
 #include "smash/constants.h"
@@ -236,6 +237,7 @@ void sample(const std::string hypersurface_input_file,
   output_file <<
       "#!OSCAR2013 particle_lists t x y z mass p0 px py pz pdg ID charge\n"
       "# Units: fm fm fm fm GeV GeV GeV GeV GeV none none none\n";
+  Statistics stats = Statistics();
   for (size_t j = 0; j < N_printout; j++) {
     step_until_sufficient_decorrelation(sampler, patches, particles,
                                         N_decorrelate, sufficient_decorrelation);
@@ -261,7 +263,9 @@ void sample(const std::string hypersurface_input_file,
       }
     }
     output_file << "# event " << j << " end" << std::endl;
+    stats.add_event(particles);
   }
+  stats.printout("stat_test.txt");
 
   for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
     MicrocanonicalSampler::QuantumNumbers cons(particles[i_patch]);
