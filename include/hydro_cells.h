@@ -79,9 +79,9 @@ public:
   double B_nonint() const { return B_tot_nonint_; }
   double S_nonint() const { return S_tot_nonint_; }
   double Q_nonint() const { return Q_tot_nonint_; }
-  void set_B(int B) { B_tot_ = B; }
-  void set_S(int S) { S_tot_ = S; }
-  void set_Q(int Q) { Q_tot_ = Q; }
+  void set_B(int B_assigned) { B_tot_ = B_assigned; }
+  void set_S(int S_assigned) { S_tot_ = S_assigned; }
+  void set_Q(int Q_assigned) { Q_tot_ = Q_assigned; }
 
 
   bool quantum_statistics() const { return quantum_statistics_; }

@@ -206,13 +206,13 @@ void read_particle_list(std::string inputfile_name,
       full_particletype_list.emplace_back(name, mass, width, pdgcode);
       // std::cout << full_particletype_list.back().name()
       //          << " " << mass << " " << pdgcode << std::endl;
-      if (pdgcode.baryon_number() == 1) {
+      if (pdgcode.baryon_number() > 0) {
        full_particletype_list.emplace_back("anti-" + name,
                                       mass, width, pdgcode.get_antiparticle());
          // std::cout << full_particletype_list.back().name() << " "
          //          << mass << " " << pdgcode.get_antiparticle() << std::endl;
       }
-      if (bar != 0 && bar != 1) {
+      if (bar < 0) {
         throw std::runtime_error("Unexpected baryon number " +
                                  std::to_string(bar));
       }

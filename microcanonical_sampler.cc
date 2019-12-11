@@ -326,8 +326,8 @@ void MicrocanonicalSampler::sample_3body_phase_space(double srts,
                                  pcm_ab * phitheta.threevec());
   b.momentum = smash::FourVector(std::sqrt(m_b * m_b + pcm_ab_sqr),
                                  -pcm_ab * phitheta.threevec());
-  a.momentum = a.momentum.LorentzBoost(beta_cm);
-  b.momentum = b.momentum.LorentzBoost(beta_cm);
+  a.momentum = a.momentum.lorentz_boost(beta_cm);
+  b.momentum = b.momentum.lorentz_boost(beta_cm);
   smash::FourVector mom_tot = a.momentum + b.momentum + c.momentum;
   mom_tot.set_x0(mom_tot.x0() - srts);
   assert(std::abs(mom_tot.sqr()) < 1.e-12);
@@ -449,7 +449,7 @@ void MicrocanonicalSampler::random_two_to_three(
 
   sample_3body_phase_space(srts, out[0], out[1], out[2]);
   for (SamplerParticle &part : out) {
-    part.momentum = part.momentum.LorentzBoost(-beta_cm);
+    part.momentum = part.momentum.lorentz_boost(-beta_cm);
   }
   if (debug_printout_ == 3) {
     std::cout << "In: " << in[0].momentum << " " << in[1].momentum << std::endl;
@@ -574,8 +574,8 @@ void MicrocanonicalSampler::random_three_to_two(
   const double mom2 = p_cm * p_cm;
   smash::FourVector p1(std::sqrt(mom2 + m1 * m1), mom),
       p2(std::sqrt(mom2 + m2 * m2), -mom);
-  out[0].momentum = p1.LorentzBoost(-beta_cm);
-  out[1].momentum = p2.LorentzBoost(-beta_cm);
+  out[0].momentum = p1.lorentz_boost(-beta_cm);
+  out[1].momentum = p2.lorentz_boost(-beta_cm);
 
   // At this point the proposal function is set
   // Further is the calculation of probability to accept it
@@ -678,7 +678,7 @@ void MicrocanonicalSampler::random_two_to_two(
   out[0].momentum = smash::FourVector(std::sqrt(mom2 + m1 * m1),  mom);
   out[1].momentum = smash::FourVector(std::sqrt(mom2 + m2 * m2), -mom);
   for (SamplerParticle &part : out) {
-    part.momentum = part.momentum.LorentzBoost(-beta_cm);
+    part.momentum = part.momentum.lorentz_boost(-beta_cm);
   }
   if (debug_printout_ == 3) {
     std::cout << "In: " << in[0].momentum << " " << in[1].momentum << std::endl;
@@ -766,7 +766,7 @@ void MicrocanonicalSampler::renormalize_momenta(
   double E = 0.0;
   double E_expected = required_total_momentum.abs();
   for (auto &particle : particles) {
-    particle.momentum = particle.momentum.LorentzBoost(beta_CM_generated);
+    particle.momentum = particle.momentum.lorentz_boost(beta_CM_generated);
     E += particle.momentum.x0();
   }
   // Renorm. momenta by factor (1+a) to get the right energy, binary search
@@ -807,7 +807,7 @@ void MicrocanonicalSampler::renormalize_momenta(
     mom3 *= (1 + a);
     const double Energy = std::sqrt(m * m + mom3.sqr());
     particle.momentum = smash::FourVector(Energy, mom3);
-    particle.momentum = particle.momentum.LorentzBoost(-beta_CM_required);
+    particle.momentum = particle.momentum.lorentz_boost(-beta_CM_required);
   }
   QuantumNumbers conserved_final = QuantumNumbers(particles);
   std::cout << "Obtained total momentum: " << conserved_final.momentum

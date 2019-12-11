@@ -308,22 +308,23 @@ void HyperSurfacePatch::read_from_VISH_2files(const std::string &folder_name,
     std::cout << "eta = " << eta << std::endl;
     const double ch_eta = std::cosh(eta),
                  sh_eta = std::sinh(eta);
-    for (const auto &cell : midrapidity_cells) {
-      const smash::FourVector r = {cell.r.x0() * ch_eta,
-                                   cell.r.x1(),
-                                   cell.r.x2(),
-                                   cell.r.x0() * sh_eta},
-                              u = {cell.u.x0() * ch_eta,
-                                   cell.u.x1(),
-                                   cell.u.x2(),
-                                   cell.u.x0() * sh_eta},
-                           dsig = {cell.dsigma.x0() * ch_eta * deta,
-                                   cell.dsigma.x1() * deta,
-                                   cell.dsigma.x2() * deta,
-                                   cell.dsigma.x0() * sh_eta * deta};
-      assert(std::abs(u.Dot(dsig) - cell.u.Dot(cell.dsigma) * deta) < 1.e-9);
+    for (const auto &a_cell : midrapidity_cells) {
+      const smash::FourVector r = {a_cell.r.x0() * ch_eta,
+                                   a_cell.r.x1(),
+                                   a_cell.r.x2(),
+                                   a_cell.r.x0() * sh_eta},
+                              u = {a_cell.u.x0() * ch_eta,
+                                   a_cell.u.x1(),
+                                   a_cell.u.x2(),
+                                   a_cell.u.x0() * sh_eta},
+                           dsig = {a_cell.dsigma.x0() * ch_eta * deta,
+                                   a_cell.dsigma.x1() * deta,
+                                   a_cell.dsigma.x2() * deta,
+                                   a_cell.dsigma.x0() * sh_eta * deta};
+      assert(std::abs(u.Dot(dsig) -
+             a_cell.u.Dot(a_cell.dsigma) * deta) < 1.e-9);
       cells_.push_back({r, dsig, u, {0.0, 0.0, 0.0, 0.0},
-                       cell.T, cell.muB, cell.muS, cell.muQ,
+                       a_cell.T, a_cell.muB, a_cell.muS, a_cell.muQ,
                        0.0, 0.0, 0.0, 0.0});
     }
     eta += deta;
@@ -357,7 +358,7 @@ void HyperSurfacePatch::compute_totals() {
                         this_cell.muQ * t->charge();
       // dsigma in the frame, where umu = (1, 0, 0, 0)
       // dsigma[0] in this frame should be equal to dsigma_mu u^mu in any frame
-      smash::FourVector dsigma = this_cell.dsigma.LorentzBoost(
+      smash::FourVector dsigma = this_cell.dsigma.lorentz_boost(
                                                        this_cell.u.velocity());
       const double z = m / T;
       double mu_m_over_T = (mu - m) / T;
@@ -407,7 +408,7 @@ void HyperSurfacePatch::compute_totals() {
       smash::FourVector pmu_cell(dsigma.x0() * x2, -dsigma.x1() * x3,
                                  -dsigma.x2() * x3, -dsigma.x3() * x3);
       pmu_cell *= t->pdgcode().spin_degeneracy();
-      pmu_cell = pmu_cell.LorentzBoost(-this_cell.u.velocity());
+      pmu_cell = pmu_cell.lorentz_boost(-this_cell.u.velocity());
       this_cell.pmu += pmu_cell;
       // std::cout << t.name() << " number: " << number_from_cell << std::endl;
       // std::cout << t.name() << ": " << pmu_cell << std::endl;
@@ -491,11 +492,6 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double N_patch_max) {
   mean_muB_sqr /= Ncells();
   double mean_dT_sqr = mean_T_sqr - mean_T * mean_T,
          mean_dmuB_sqr = mean_muB_sqr - mean_muB * mean_muB;
-  std::cout << "Hypersurface temperature: " << mean_T << "±"
-            << std::sqrt(mean_dT_sqr) << "  GeV." << std::endl;;
-  std::cout << "Hypersurface baryochemical potential: " << mean_muB << "±"
-            << std::sqrt(mean_dmuB_sqr) << "  GeV." << std::endl;
-
   if (mean_dT_sqr < 1.e-6) {
     mean_dT_sqr = 0.0;
   }
@@ -527,12 +523,12 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double N_patch_max) {
    * 2) Sort cells by distance d^2 =
    *       (dx^2 + dy^2 + dz^2)/d0^2 + dT^2/sigT^2 + dmuB^2/sigmuB^2),
    *       where d0 [fm] is a heuristically defined constant.
-   * 3) Pick up next cells to the patch until total energy is more than E_patch
-   *    or no cells left. Then start over from 1).
+   * 3) Pick up next cells to the patch until total mean particle number is
+   *    more than N_patch or no cells left. Then start over from 1).
    *
    * Main advantage of this algorithm is that one gets patches of similar total
-   * energy, while the variation of temperature and muB is not too large within
-   * a patch.
+   * mean particle number, while the variation of temperature and muB is not too
+   * large within a patch.
    */
   std::vector<HyperSurfacePatch> patches;
   std::vector<hydro_cell>::iterator nonclustered_begin = cells_.begin();
@@ -629,7 +625,7 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double N_patch_max) {
    *  over patches is guaranteed to be right.
    */
   double B_hyper = 0.0, S_hyper = 0.0, Q_hyper = 0.0;
-  int B = 0, S = 0, Q = 0;
+  int B_floor = 0, S_floor = 0, Q_floor = 0;
   std::vector<double> dB, dS, dQ;
   std::cout << "Making sure patches have integer quantum numbers and they "
             << "sum up to the ones of the whole hypersurface." << std::endl;
@@ -637,9 +633,9 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double N_patch_max) {
     B_hyper += patch.B_nonint();
     S_hyper += patch.S_nonint();
     Q_hyper += patch.Q_nonint();
-    B += static_cast<int>(std::floor(patch.B_nonint()));
-    S += static_cast<int>(std::floor(patch.S_nonint()));
-    Q += static_cast<int>(std::floor(patch.Q_nonint()));
+    B_floor += static_cast<int>(std::floor(patch.B_nonint()));
+    S_floor += static_cast<int>(std::floor(patch.S_nonint()));
+    Q_floor += static_cast<int>(std::floor(patch.Q_nonint()));
     dB.push_back(patch.B_nonint() - std::floor(patch.B_nonint()));
     dS.push_back(patch.S_nonint() - std::floor(patch.S_nonint()));
     dQ.push_back(patch.Q_nonint() - std::floor(patch.Q_nonint()));
@@ -651,13 +647,13 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double N_patch_max) {
   std::cout << "B_hyper_int = " << B_hyper_int
             << ", S_hyper_int = " << S_hyper_int
             << ", Q_hyper_int = " << Q_hyper_int << std::endl;
-  B = B_hyper_int - B;
-  S = S_hyper_int - S;
-  Q = Q_hyper_int - Q;
+  const int B_remainder = B_hyper_int - B_floor;
+  const int S_remainder = S_hyper_int - S_floor;
+  const int Q_remainder = Q_hyper_int - Q_floor;
 
-  std::vector<int> dB_int = sample_weighted_01_permutation(B, dB),
-                   dS_int = sample_weighted_01_permutation(S, dS),
-                   dQ_int = sample_weighted_01_permutation(Q, dQ);
+  std::vector<int> dB_int = sample_weighted_01_permutation(B_remainder, dB),
+                   dS_int = sample_weighted_01_permutation(S_remainder, dS),
+                   dQ_int = sample_weighted_01_permutation(Q_remainder, dQ);
 
   const size_t Npatches = patches.size();
   for (size_t i = 0; i < Npatches; i++) {
