@@ -112,7 +112,7 @@ void step_until_sufficient_decorrelation(
     MicrocanonicalSampler& sampler,
     const std::vector<HyperSurfacePatch>& patches,
     std::vector<MicrocanonicalSampler::SamplerParticleList>& particles,
-    size_t min_steps_number, double required_decorrelation_degree) {
+    size_t min_steps_number) {
   size_t number_of_patches = patches.size();
   // Fixed amount of 2<->3. Forcing decorrelation in 2<->3 leads to a bias
   // in particle number distribution.
@@ -150,8 +150,7 @@ void step_until_sufficient_decorrelation(
           [](MicrocanonicalSampler::SamplerParticle p) { return !p.decorrelated; });
       // printf("Patch %lu: not decorrelated %lu/%lu\n", i_patch,
       //       non_decorr_counter, particles[i_patch].size());
-    } while (non_decorr_counter >
-             particles[i_patch].size() * required_decorrelation_degree);
+    } while (non_decorr_counter > 0);
   }
 }
 
@@ -170,12 +169,6 @@ void sample(const std::string hypersurface_input_file,
   auto is_sampled_type = [&](ParticleTypePtr t) {
     return t->is_hadron() && t->mass() < max_mass;
   };
-  /**
-   * Percentage of particles that are allowed to be untouched after a
-   * decorrelation session: 0 is maximally strict, 1 is not strict
-   * at all.
-   */
-  constexpr double sufficient_decorrelation = 0.01;
 
   HyperSurfacePatch hyper(hypersurface_input_file, hypersurface_file_format,
                           eta_for_2Dhydro,
@@ -219,8 +212,7 @@ void sample(const std::string hypersurface_input_file,
   }
 
   std::cout << "Warming up." << std::endl;
-  step_until_sufficient_decorrelation(sampler, patches, particles,
-                                      N_warmup, sufficient_decorrelation);
+  step_until_sufficient_decorrelation(sampler, patches, particles, N_warmup);
   std::cout << "Finished warming up." << std::endl;
   size_t total_particles = 0;
   for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
@@ -240,7 +232,7 @@ void sample(const std::string hypersurface_input_file,
   Statistics stats = Statistics();
   for (size_t j = 0; j < N_printout; j++) {
     step_until_sufficient_decorrelation(sampler, patches, particles,
-                                        N_decorrelate, sufficient_decorrelation);
+                                        N_decorrelate);
     // print out
     if (j % 10000 == 0 && j != 0) {
       std::cout << "sample " << j << std::endl;
@@ -449,7 +441,8 @@ int main(int argc, char **argv) {
 
   read_particle_list(particles_file, particles_file_format);
 
-  const size_t N_warmup = 1E6, N_decorrelate = 200;
+  const size_t N_warmup = 1E6,
+               N_decorrelate = std::round(20 + 20 * Ntot_patch);
   constexpr double max_mass = 2.5;  // GeV
   sample(hypersurface_input_file, hypersurface_file_format, eta_for_2Dhydro,
          output_file, patches_output_filename,
