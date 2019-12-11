@@ -265,7 +265,7 @@ void sample(const std::string hypersurface_input_file,
     output_file << "# event " << j << " end" << std::endl;
     stats.add_event(particles);
   }
-  stats.printout("stat_test.txt");
+  stats.printout("stat_test_E" + std::to_string(E_patch) + ".txt");
 
   for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
     MicrocanonicalSampler::QuantumNumbers cons(particles[i_patch]);
