@@ -348,7 +348,7 @@ void HyperSurfacePatch::compute_totals() {
                         this_cell.muQ * t->charge();
       // dsigma in the frame, where umu = (1, 0, 0, 0)
       // dsigma[0] in this frame should be equal to dsigma_mu u^mu in any frame
-      smash::FourVector dsigma = this_cell.dsigma.LorentzBoost(
+      smash::FourVector dsigma = this_cell.dsigma.lorentz_boost(
                                                        this_cell.u.velocity());
       const double z = m / T;
       double mu_m_over_T = (mu - m) / T;
@@ -397,7 +397,7 @@ void HyperSurfacePatch::compute_totals() {
       smash::FourVector pmu_cell(dsigma.x0() * x2, -dsigma.x1() * x3,
                                  -dsigma.x2() * x3, -dsigma.x3() * x3);
       pmu_cell *= t->pdgcode().spin_degeneracy();
-      pmu_cell = pmu_cell.LorentzBoost(-this_cell.u.velocity());
+      pmu_cell = pmu_cell.lorentz_boost(-this_cell.u.velocity());
       this_cell.pmu += pmu_cell;
       // std::cout << t.name() << " number: " << number_from_cell << std::endl;
       // std::cout << t.name() << ": " << pmu_cell << std::endl;
