@@ -1,6 +1,6 @@
 #include <gsl/gsl_sf_bessel.h>
 
-#include "hydro_cells.h"
+#include "microcanonical_sampler/hydro_cells.h"
 
 #include "smash/constants.h"
 #include "smash/random.h"

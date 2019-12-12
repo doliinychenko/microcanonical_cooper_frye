@@ -2,8 +2,8 @@
 #include <vector>
 #include <iostream>
 
-#include "hydro_cells.h"
-#include "microcanonical_sampler.h"
+#include "microcanonical_sampler/hydro_cells.h"
+#include "microcanonical_sampler/microcanonical_sampler.h"
 
 #include <gsl/gsl_sf_ellint.h>
 

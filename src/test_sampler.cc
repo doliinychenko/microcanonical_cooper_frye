@@ -8,10 +8,10 @@
 #include <cstring>
 #include <random>
 
-#include "main.h"
-#include "microcanonical_sampler.h"
-#include "sampler_particletype_list.h"
-#include "statistics_summary.h"
+#include "microcanonical_sampler/main.h"
+#include "microcanonical_sampler/microcanonical_sampler.h"
+#include "microcanonical_sampler/sampler_particletype_list.h"
+#include "microcanonical_sampler/statistics_summary.h"
 
 #include "smash/angles.h"
 #include "smash/constants.h"

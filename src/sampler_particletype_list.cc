@@ -1,4 +1,4 @@
-#include "sampler_particletype_list.h"
+#include "microcanonical_sampler/sampler_particletype_list.h"
 #include "smash/stringfunctions.h"
 
 #include <fstream>

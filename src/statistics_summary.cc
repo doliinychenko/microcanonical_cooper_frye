@@ -1,6 +1,6 @@
 #include <fstream>
 
-#include "statistics_summary.h"
+#include "microcanonical_sampler/statistics_summary.h"
 
 #include "smash/pow.h"
 
