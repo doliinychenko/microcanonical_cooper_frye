@@ -1,6 +1,7 @@
 *~
 build
 cmake
+smash
 .directory
 .push_default
 *.diff
