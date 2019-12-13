@@ -122,4 +122,14 @@ std::ostream &
 operator<<(std::ostream &out,
            const MicrocanonicalSampler::SamplerParticleList &list);
 
+/**
+ * Perform at least min_steps_number Metropolis steps. Repeat elastic
+ * steps until all particles are updated.
+ */
+void step_until_sufficient_decorrelation(
+    MicrocanonicalSampler& sampler,
+    const std::vector<HyperSurfacePatch>& patches,
+    std::vector<MicrocanonicalSampler::SamplerParticleList>& particles,
+    size_t min_steps_number);
+
 #endif // MICROCANONICAL_SAMPLER_H

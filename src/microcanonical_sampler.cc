@@ -13,6 +13,52 @@
 #include "smash/pow.h"
 #include "smash/random.h"
 
+void step_until_sufficient_decorrelation(
+    MicrocanonicalSampler& sampler,
+    const std::vector<HyperSurfacePatch>& patches,
+    std::vector<MicrocanonicalSampler::SamplerParticleList>& particles,
+    size_t min_steps_number) {
+  size_t number_of_patches = patches.size();
+  // Fixed amount of 2<->3. Forcing decorrelation in 2<->3 leads to a bias
+  // in particle number distribution.
+  #pragma omp parallel for
+  for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+    for (size_t i = 0; i < min_steps_number; ++i) {
+      sampler.one_markov_chain_step(patches[i_patch], particles[i_patch]);
+    }
+  }
+  // Fixed amount of inelastic 2<->2. Forcing decorrelation in inelastic
+  // 2<->2 leads to some biases in particle number distribution.
+  #pragma omp parallel for
+  for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+    for (size_t i = 0; i < min_steps_number; ++i) {
+      constexpr bool elastic = false;
+      sampler.random_two_to_two(patches[i_patch], particles[i_patch], elastic);
+    }
+  }
+
+  // Do elastic 2<->2 until decorrelation. This may bias momentum correlations,
+  // but does not bias any multiplicity distribution.
+  #pragma omp parallel for
+  for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
+    for (auto &particle : particles[i_patch]) {
+      particle.decorrelated = false;
+    }
+    size_t non_decorr_counter;
+    do {
+      for (size_t i = 0; i < min_steps_number; ++i) {
+        constexpr bool elastic = true;
+        sampler.random_two_to_two(patches[i_patch], particles[i_patch], elastic);
+      }
+      non_decorr_counter = std::count_if(
+          particles[i_patch].begin(), particles[i_patch].end(),
+          [](MicrocanonicalSampler::SamplerParticle p) { return !p.decorrelated; });
+      // printf("Patch %lu: not decorrelated %lu/%lu\n", i_patch,
+      //       non_decorr_counter, particles[i_patch].size());
+    } while (non_decorr_counter > 0);
+  }
+}
+
 MicrocanonicalSampler::MicrocanonicalSampler(
     const std::function<bool(const ParticleTypePtr)> &is_sampled,
     int debug_printout, bool quantum_statistics)

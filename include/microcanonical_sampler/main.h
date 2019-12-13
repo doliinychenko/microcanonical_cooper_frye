@@ -13,16 +13,6 @@ int64_t generate_63bit_seed();
 void reproduce_arxiv_1902_09775();
 
 /**
- * Perform at least min_steps_number Metropolis steps. Repeat elastic
- * steps until all particles are updated.
- */
-void step_until_sufficient_decorrelation(
-    MicrocanonicalSampler& sampler,
-    const std::vector<HyperSurfacePatch>& patches,
-    std::vector<MicrocanonicalSampler::SamplerParticleList>& particles,
-    size_t min_steps_number);
-
-/**
  * Main sampling routine. Reads the list of cells (hypersurface elements)
  * from hypersurface_input_file of format hypersurface_file_format.
  * Then prepares the sampler and samples.
