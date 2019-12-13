@@ -9,7 +9,6 @@ execute_process(COMMAND git clone  https://github.com/smash-transport/smash.git
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
 set(SOURCE_FILES
-    src/test_sampler.cc
     src/microcanonical_sampler.cc
     src/hydro_cells.cc
     src/sampler_particletype_list.cc
@@ -20,7 +19,7 @@ set(SOURCE_FILES
     smash/src/fourvector.cc
     smash/src/stringfunctions.cc
 )
-add_executable(microcanonical ${SOURCE_FILES})
+add_executable(microcanonical src/test_sampler.cc ${SOURCE_FILES})
 add_library(microcanonical_sampling ${SOURCE_FILES})
 target_link_libraries(microcanonical_sampling PRIVATE OpenMP::OpenMP_CXX)
 
