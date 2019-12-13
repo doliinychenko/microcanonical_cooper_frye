@@ -7,17 +7,21 @@ find_package(GSL 1.15 REQUIRED)
 execute_process(COMMAND git clone  https://github.com/smash-transport/smash.git
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 )
-add_executable(microcanonical src/test_sampler.cc
-               src/microcanonical_sampler.cc
-               src/hydro_cells.cc
-               src/sampler_particletype_list.cc
-               src/statistics_summary.cc
+set(SOURCE_FILES
+    src/test_sampler.cc
+    src/microcanonical_sampler.cc
+    src/hydro_cells.cc
+    src/sampler_particletype_list.cc
+    src/statistics_summary.cc
 
-               smash/src/pdgcode.cc
-               smash/src/threevector.cc
-               smash/src/fourvector.cc
-               smash/src/stringfunctions.cc
+    smash/src/pdgcode.cc
+    smash/src/threevector.cc
+    smash/src/fourvector.cc
+    smash/src/stringfunctions.cc
 )
+add_executable(microcanonical ${SOURCE_FILES})
+add_library(microcanonical_sampling ${SOURCE_FILES})
+
 include_directories(include)
 include_directories(smash/src/include)
 
