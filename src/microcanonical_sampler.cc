@@ -29,6 +29,7 @@ void step_until_sufficient_decorrelation(
   }
   // Fixed amount of inelastic 2<->2. Forcing decorrelation in inelastic
   // 2<->2 leads to some biases in particle number distribution.
+/*
   #pragma omp parallel for
   for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
     for (size_t i = 0; i < min_steps_number; ++i) {
@@ -36,7 +37,7 @@ void step_until_sufficient_decorrelation(
       sampler.random_two_to_two(patches[i_patch], particles[i_patch], elastic);
     }
   }
-
+*/
   // Do elastic 2<->2 until decorrelation. This may bias momentum correlations,
   // but does not bias any multiplicity distribution.
   #pragma omp parallel for

@@ -486,8 +486,6 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
   if (mean_dmuB_sqr < 1.e-6) {
     mean_dmuB_sqr = 0.0;
   }
-  double inv_dT_sqr = (mean_dT_sqr < 1.e-6) ? 0.0 : 1.0 / mean_dT_sqr,
-         inv_dmuB_sqr = (mean_dmuB_sqr < 1.e-6) ? 0.0 : 1.0 / mean_dmuB_sqr;
   std::cout << "Hypersurface temperature: " << mean_T << "±"
             << std::sqrt(mean_dT_sqr) << "  GeV." << std::endl;;
   std::cout << "Hypersurface baryochemical potential: " << mean_muB << "±"
@@ -523,40 +521,41 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
   size_t patch_counter = 0;
   while (nonclustered_begin != cells_.end()) {
     // (1) Find cell with maximum energy from non-clustered cells
-    hydro_cell* max_energy_cell_ref = &(*nonclustered_begin);
-    double maximum_energy = 0.0;
+    hydro_cell* max_eta_cell_ref = &(*nonclustered_begin);
+    double maximum_eta = -1000.0;
     for (auto it = nonclustered_begin; it < cells_.end(); it++) {
-      if (it->pmu.x0() > maximum_energy) {
-        maximum_energy = it->pmu.x0();
-        max_energy_cell_ref = &(*it);
+      double current_eta = std::atanh(it->r.x3() / it->r.x0());
+      if (current_eta > maximum_eta) {
+        maximum_eta = current_eta;
+        max_eta_cell_ref = &(*it);
       }
     }
     // Now copy the cell, because soon the cells_ vector will be sorted
     // and references will mix up.
-    hydro_cell max_energy_cell = *max_energy_cell_ref;
-    std::cout << "Max energy at cell with T [GeV] = " << max_energy_cell.T
-              << ", muB [GeV] = " << max_energy_cell.muB
-              << ", r = " << max_energy_cell.r << std::endl;
+    hydro_cell max_eta_cell = *max_eta_cell_ref;
+    std::cout << "Max |eta| cell with T [GeV] = " << max_eta_cell.T
+              << ", muB [GeV] = " << max_eta_cell.muB
+              << ", r = " << max_eta_cell.r << std::endl;
 
     // (2) Sort non-clustered cells from smallest to largest d^2
-    constexpr double d0 = 2.0;  // fm
-    constexpr double inv_d0_sqr = 1.0 / (d0 * d0);
     std::sort(nonclustered_begin, cells_.end(),
               [&](const hydro_cell& a, const hydro_cell& b) {
-      double da2 = (a.r.threevec() - max_energy_cell.r.threevec()).sqr();
-      da2 *= inv_d0_sqr;
-      double tmp = (a.T - max_energy_cell.T);
-      da2 += tmp * tmp * inv_dT_sqr;
-      tmp = (a.muB - max_energy_cell.muB);
-      da2 += tmp * tmp * inv_dmuB_sqr;
+      double tmp = std::atanh(a.r.x3() / a.r.x0());
+      tmp -= std::atanh(max_eta_cell.r.x3() / max_eta_cell.r.x0());
+      double da2 = tmp * tmp;
 
-      double db2 = (b.r.threevec() - max_energy_cell.r.threevec()).sqr();
-      db2 *= inv_d0_sqr;
-      tmp = (b.T - max_energy_cell.T);
-      db2 += tmp * tmp * inv_dT_sqr;
-      tmp = (b.muB - max_energy_cell.muB);
-      db2 += tmp * tmp * inv_dmuB_sqr;
+      tmp = std::atanh(b.r.x3() / b.r.x0());
+      tmp -= std::atanh(max_eta_cell.r.x3() / max_eta_cell.r.x0());
+      double db2 = tmp * tmp;
+/*
+      double da2 = (a.r.threevec() - max_eta_cell.r.threevec()).sqr();
+      double tmp = a.r.x0() - max_eta_cell.r.x0();
+      da2 += tmp * tmp;
 
+      double db2 = (b.r.threevec() - max_eta_cell.r.threevec()).sqr();
+      tmp = b.r.x0() - max_eta_cell.r.x0();
+      db2 += tmp * tmp;
+*/
       return da2 < db2;
     });
 
@@ -571,7 +570,7 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
 /*
     double dmax = 0.0;
     for (auto it = cluster_start; it < nonclustered_begin; it++) {
-      const double d = (it->r.threevec() - max_energy_cell.r.threevec()).abs();
+      const double d = (it->r.threevec() - max_eta_cell.r.threevec()).abs();
       if (d > dmax) {
         dmax = d;
       }
@@ -670,7 +669,6 @@ std::vector<HyperSurfacePatch> HyperSurfacePatch::split(double E_patch_max) {
   assert(B_hyper_int == B_hyper_test);
   assert(S_hyper_int == S_hyper_test);
   assert(Q_hyper_int == Q_hyper_test);
-
   return patches;
 }
 

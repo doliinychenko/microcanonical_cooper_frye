@@ -394,7 +394,7 @@ int main(int argc, char **argv) {
 
   read_particle_list(particles_file, particles_file_format);
 
-  const size_t N_warmup = 1E6, N_decorrelate = 500;
+  const size_t N_warmup = 1E6, N_decorrelate = 200;
   constexpr double max_mass = 2.5;  // GeV
   sample(hypersurface_input_file, hypersurface_file_format, eta_for_2Dhydro,
          output_file, patches_output_filename,
