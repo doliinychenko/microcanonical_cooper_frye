@@ -141,7 +141,8 @@ void sample(const std::string hypersurface_input_file,
     for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
       for (const auto a_cell : patches[i_patch].cells()) {
         const smash::ThreeVector v = a_cell.u.velocity();
-        patches_output_file << a_cell.r.x1() << " "
+        patches_output_file << a_cell.r.x0() << " "
+                            << a_cell.r.x1() << " "
                             << a_cell.r.x2() << " "
                             << a_cell.r.x3() << " "
                             << a_cell.T << " "
