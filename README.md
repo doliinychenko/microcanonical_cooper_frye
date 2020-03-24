@@ -87,7 +87,8 @@ The project is already at the stage, when I know that it works, because
 it is tested in a number of simple cases and already optimized to run fast enough
 for practical usage. For the derivation, explanations, and first results see
 [this preprint](https://arxiv.org/pdf/1902.09775.pdf). A more detailed paper
-is under preparation. However, some particular features (such as viscous corrections)
+is [also available](https://arxiv.org/pdf/2001.08176). Some particular
+features (such as viscous corrections)
 are still missing and the further testing is ongoing.
 
 
