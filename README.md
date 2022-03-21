@@ -27,7 +27,8 @@ the provided hypersurface is particularly simple --- a static box.
 Microcanonical samplers were implemented before (see [a paper by Werner and
 Aichelin](https://arxiv.org/pdf/nucl-th/9503021.pdf) and [a paper by Becattini
 and Ferroni](https://arxiv.org/pdf/hep-ph/0407117.pdf)), but these
-implementations used different methods and the codes are proprietary.
+implementations used different methods, the codes are proprietary,
+and I believe that my method is faster.
 
 
 #### Background
