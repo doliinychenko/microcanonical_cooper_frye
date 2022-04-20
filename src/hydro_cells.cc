@@ -36,6 +36,9 @@ HyperSurfacePatch::HyperSurfacePatch(
     // In this case input_file is the name of a folder
     read_from_VISH_2files(input_file, eta_for_2Dhydro);
     break;
+  case InputFormat::vHLLE_ASCII:
+    read_from_vHLLE_file(input_file);
+    break;
   default:
     throw std::runtime_error("Unknown input file format");
   }
@@ -322,12 +325,70 @@ void HyperSurfacePatch::read_from_VISH_2files(const std::string &folder_name,
   }
 }
 
+void HyperSurfacePatch::read_from_vHLLE_file(const std::string &filename) {
+  std::ifstream fin(filename);
+  if (!fin){
+    throw std::runtime_error("Could not open file " + filename);
+  }
+
+  size_t line_counter = 0;
+  std::string line;
+  std::istringstream instream;
+  double Volume = 0.0;
+  while (true){
+    if (fin.eof()) {
+      break;
+    }
+    line_counter++;
+    double ds0, ds1, ds2, ds3, u0, u1, u2, u3, T, muB, muS, muQ, tau, x, y,
+        eta;
+    getline(fin, line);
+    instream.str(line);
+    instream.seekg(0);
+    instream.clear();
+    instream >> tau >> x >> y >> eta >> ds0 >> ds1 >> ds2 >> ds3 >>
+                u0 >> u1 >> u2 >> u3 >> T >> muB >> muQ >> muS;
+    smash::FourVector u_Milne(u0, u1, u2, u3);
+    assert(T >= 0.0);
+    smash::FourVector u_Milne_test(u0, u1, u2, u3);
+    if (std::abs(u_Milne_test.sqr() - 1.0) > 2.e-6) {
+      std::cout << "Warning at reading from vHLLE output (line "
+                << line_counter << "): "
+                << "u_Milne (u_eta multiplied by tau) = " << u_Milne_test
+                << ", u^2 == 1 is not fulfilled with error "
+                << std::setprecision(9) << std::abs(u_Milne_test.sqr() - 1.0) << std::endl;
+    }
+    const double umu_dsigmamu_vhlle =  (ds0 * u0 + ds1 * u1 + ds2 * u2 + ds3 * u3);
+    // Transforming from Milne to Cartesian
+    const double ch_eta = std::cosh(eta);
+    const double sh_eta = std::sinh(eta);
+    const double t = tau * ch_eta, z = tau * sh_eta;
+    smash::FourVector u(u0 * ch_eta + u3 * sh_eta, u1, u2, u0 * sh_eta + u3 * ch_eta);
+    if (std::abs(u.sqr() - 1.0) > 1.e-3) {
+      std::cout << "u*u should be 1, u*u = " << u.sqr() << std::endl;
+    }
+    smash::FourVector ds(ch_eta * ds0 - ds3 * sh_eta, - ds1,
+                         - ds2, sh_eta * ds0 - ds3 * ch_eta);
+    // Check that the umu*dsigmamu remains invariant after conversion
+    const double umu_dsigmamu = ds.Dot(u);
+    if (std::abs(umu_dsigmamu - umu_dsigmamu_vhlle) > 1.e-4) {
+      std::cout << "u^mu * dsigma_mu should be invariant: "
+                << umu_dsigmamu << " == " << umu_dsigmamu_vhlle << std::endl;
+    }
+    Volume += umu_dsigmamu;
+    cells_.push_back({{t, x, y, z}, ds, u, {0.0, 0.0, 0.0, 0.0},
+                      T, muB, muS, muQ, 0.0, 0.0, 0.0});
+  }
+  std::cout << "Analog of total volume, integral (u*sigma) [fm^3] = " << Volume  << std::endl;
+  std::cout << cells_.size() << " cells read from the file " << filename
+            << std::endl;
+}
 
 void HyperSurfacePatch::compute_totals() {
   std::cout << "Computing 4-momentum and charges in cells" << std::endl;
   const double hbarc = smash::hbarc;
   const double factor = 1.0 / (2.0 * M_PI * M_PI * hbarc * hbarc * hbarc);
-  unsigned int cell_counter = 0;
+  unsigned int cell_counter = 0, pathological_counter = 0;
   #pragma omp parallel for
   for (auto it = cells_.begin(); it < cells_.end(); it++) {
     hydro_cell& this_cell = *it;
@@ -407,8 +468,19 @@ void HyperSurfacePatch::compute_totals() {
     this_cell.B *= a;
     this_cell.S *= a;
     this_cell.Q *= a;
+    if (this_cell.pmu[0] < 0) {
+      pathological_counter++;
+      /*
+      std::cout << "cell #" << cell_counter << ", pmu = " << this_cell.pmu
+                << ", B = " << this_cell.B
+                << ", S = " << this_cell.S
+                << ", Q = " << this_cell.Q << std::endl;
+      */
+    }
   }
   this->sum_up_totals_from_cells();
+  std::cout << "Number of pathological cells (energy < 0) / total cells: "
+            << pathological_counter << "/" << cell_counter << std::endl;
 }
 
 std::vector<int> HyperSurfacePatch::sample_weighted_01_permutation(int sum,

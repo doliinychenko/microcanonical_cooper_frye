@@ -236,7 +236,7 @@ void usage(const int rc, const std::string &progname) {
       "                          File with the list of hypersurface elements\n"
       "                          and its format: Dima_format,\n"
       "                          Steinheimer_format, MUSIC_format,\n"
-      "                          or VISH_format\n"
+      "                          , VISH_format or vHLLE_format\n"
       "  -y, --eta_range         <eta_min>,<eta_max>,<d_eta>\n"
       "                          range of pseudorapidity for the case of\n"
       "                          2+1D hydro. Default is\n"
@@ -334,6 +334,9 @@ int main(int argc, char **argv) {
           } else if (args[1] == "VISH_format") {
             hypersurface_file_format =
               HyperSurfacePatch::InputFormat::VISH_2files;
+          } else if (args[1] == "vHLLE_format") {
+            hypersurface_file_format =
+              HyperSurfacePatch::InputFormat::vHLLE_ASCII;
           } else {
             usage(EXIT_FAILURE, progname);
           }
