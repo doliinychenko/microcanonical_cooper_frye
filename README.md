@@ -171,7 +171,7 @@ a custom particle list:
 Parameters like patch size or number of events can be specified via command-line options:
 
       ./microcanonical --energy_patch 15.5
-      ./microcanonicel --nevents 10000
+      ./microcanonical --nevents 10000
 
 ### Outputs  <a name = "output"></a>
 
@@ -226,5 +226,5 @@ take advantage of a script intended specifically for this purpose:
 ## Troubleshooting and feature requests   <a name = "bugs"></a>
 
   If you are interested in some feature, you can either create an issue right
-here, at github, or write me an e-mail (doliinychenko [at] lbl.gov). Same thing
+here, at github, or write me an e-mail (oliiny [at] uw.edu). Same thing
 if you find a bug.
