@@ -388,7 +388,7 @@ void HyperSurfacePatch::compute_totals() {
   std::cout << "Computing 4-momentum and charges in cells" << std::endl;
   const double hbarc = smash::hbarc;
   const double factor = 1.0 / (2.0 * M_PI * M_PI * hbarc * hbarc * hbarc);
-  unsigned int cell_counter = 0, pathological_counter = 0;
+  unsigned int cell_counter = 0, pathological_counter = 0, lowT_cells = 0;
   #pragma omp parallel for
   for (auto it = cells_.begin(); it < cells_.end(); it++) {
     hydro_cell& this_cell = *it;
@@ -402,6 +402,10 @@ void HyperSurfacePatch::compute_totals() {
     this_cell.S = 0.0;
     this_cell.Q = 0.0;
     const double T = this_cell.T;
+    if (T < 0.01) {   // T < 10 MeV
+      lowT_cells++;
+      continue;
+    }
     for (const ParticleTypePtr t : sampled_types_) {
       const double m = t->mass();
       const double mu = this_cell.muB * t->baryon_number() +
@@ -481,6 +485,8 @@ void HyperSurfacePatch::compute_totals() {
   this->sum_up_totals_from_cells();
   std::cout << "Number of pathological cells (energy < 0) / total cells: "
             << pathological_counter << "/" << cell_counter << std::endl;
+  std::cout << "Number of ignored low-T cells (T < 10 MeV) / total_cells: "
+            << lowT_cells << "/" << cell_counter << std::endl;
 }
 
 std::vector<int> HyperSurfacePatch::sample_weighted_01_permutation(int sum,
