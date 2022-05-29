@@ -139,7 +139,7 @@ void sample(const std::string hypersurface_input_file,
                << patches_output_filename << std::endl;
     std::ofstream patches_output_file(patches_output_filename, std::ios::out);
     for (size_t i_patch = 0; i_patch < number_of_patches; i_patch++) {
-      for (const auto a_cell : patches[i_patch].cells()) {
+      for (const auto& a_cell : patches[i_patch].cells()) {
         const smash::ThreeVector v = a_cell.u.velocity();
         patches_output_file << a_cell.r.x1() << " "
                             << a_cell.r.x2() << " "
