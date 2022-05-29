@@ -210,6 +210,11 @@ this sampler. If you wish to use it in the microcanonical sampler mode, you can
 take advantage of a script intended specifically for this purpose:
 
       ../scripts/microcanonical_sampler_box.sh  -V <Volume in fm^3> -T <Temperature in GeV>
+      
+It may be confusing that a temperature has to be specified for a microcanonical sampler instead
+of the energy. This is done for a convenient comparison with grand-canonical samplers.
+The temperature is used to compute total energy E in a grand-canonical case, and then this
+energy E is used for microcanonical sampling.
 
 ## Testing physics <a name = "testing"></a>
 
