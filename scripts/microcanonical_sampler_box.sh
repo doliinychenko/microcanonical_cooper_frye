@@ -26,7 +26,7 @@ function usage {
 }
 
 sampler="./microcanonical"
-particles_decaymodes=""
+particles="../smash/input/particles.txt,SMASH"
 nsamples="10000"
 
 while getopts ":V:T:p:s:n:h" opt; do
