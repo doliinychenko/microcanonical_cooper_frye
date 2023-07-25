@@ -231,5 +231,5 @@ energy E is used for microcanonical sampling.
 ## Troubleshooting and feature requests   <a name = "bugs"></a>
 
   If you are interested in some feature, you can either create an issue right
-here, at github, or write me an e-mail (oliiny [at] uw.edu). Same thing
+here, at github, or write me an e-mail (dmytrooliinychenko [at] gmail). Same thing
 if you find a bug.
